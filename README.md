@@ -50,6 +50,28 @@ See `.env.example`. Notably `CROSSREF_MAILTO` — set it to a real contact addre
 deployed environment so Crossref routes your requests into its "polite pool" with better
 rate limits; the placeholder default is fine for local development only.
 
+## Deploy to Render
+
+The repo includes a `Dockerfile` and a Render Blueprint (`render.yaml`) that provisions both
+the web service and a managed Postgres database in one step.
+
+1. Sign in at [render.com](https://render.com) and connect your GitHub account.
+2. **New +** → **Blueprint** → select `snow34/citation-tracker`. Render reads `render.yaml`
+   and shows a preview of the web service + database it's about to create.
+3. Click **Apply**. Render builds the Docker image, provisions Postgres, links
+   `DATABASE_URL` automatically, and generates a random `JWT_SECRET_KEY` for you.
+4. Once the first deploy finishes, open the service's **Environment** tab and edit:
+   - `CROSSREF_MAILTO` → a real contact address (Crossref's polite-pool etiquette)
+   - `ALLOWED_ORIGINS` → your frontend's real origin, once one exists (defaults to `*`,
+     which is safe for now since auth is bearer-JWT rather than cookies)
+5. From then on, every push to `main` auto-deploys — no separate deploy step needed in CI,
+   which stays scoped to lint/migrate/test.
+
+The start command (`alembic upgrade head && uvicorn ...`) runs migrations on every boot.
+That's a no-op once the schema is current and is fine at this app's current single-instance
+scale; if it's ever scaled to multiple instances, move the migration to Render's
+pre-deploy-command feature instead so it runs once per deploy, not once per instance.
+
 ## API overview
 
 | Area | Endpoints |

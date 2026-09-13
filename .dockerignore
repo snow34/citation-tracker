@@ -1,0 +1,13 @@
+.venv/
+.git/
+tests/
+.env
+.env.example
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+docker-compose.yml
+scripts/
+README.md
