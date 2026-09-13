@@ -1,0 +1,1 @@
+CREATE DATABASE citation_tracker_test;
