@@ -60,10 +60,11 @@ the web service and a managed Postgres database in one step.
    and shows a preview of the web service + database it's about to create.
 3. Click **Apply**. Render builds the Docker image, provisions Postgres, links
    `DATABASE_URL` automatically, and generates a random `JWT_SECRET_KEY` for you.
-4. Once the first deploy finishes, open the service's **Environment** tab and edit:
+4. Once the first deploy finishes, open the service's **Environment** tab and confirm:
    - `CROSSREF_MAILTO` → a real contact address (Crossref's polite-pool etiquette)
-   - `ALLOWED_ORIGINS` → your frontend's real origin, once one exists (defaults to `*`,
-     which is safe for now since auth is bearer-JWT rather than cookies)
+   - `ALLOWED_ORIGINS` → set to the GitHub Pages origin (`https://snow34.github.io`) so the
+     frontend below can call the API cross-origin; update this if the frontend ever moves
+     to a different origin. Safe either way since auth is bearer-JWT rather than cookies.
 5. From then on, every push to `main` auto-deploys — no separate deploy step needed in CI,
    which stays scoped to lint/migrate/test.
 
@@ -71,6 +72,20 @@ The start command (`alembic upgrade head && uvicorn ...`) runs migrations on eve
 That's a no-op once the schema is current and is fine at this app's current single-instance
 scale; if it's ever scaled to multiple instances, move the migration to Render's
 pre-deploy-command feature instead so it runs once per deploy, not once per instance.
+
+## Frontend
+
+`frontend/` is a plain HTML/CSS/JS single-page app (no build step) that talks to the API
+above. It's deployed to **GitHub Pages** via `.github/workflows/deploy-pages.yml`, which
+publishes the `frontend/` folder on every push to `main` that touches it.
+
+One-time setup (repo owner only): in **Settings → Pages**, set **Source** to
+**GitHub Actions**. After that, the live frontend is at
+`https://snow34.github.io/citation-tracker/`.
+
+The frontend points at the deployed Render backend by default. To point it at a different
+API (e.g. `localhost:8000` for local dev), open it with `?api=<url>` once — the override is
+remembered in `localStorage`.
 
 ## API overview
 
