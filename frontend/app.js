@@ -593,7 +593,7 @@
     });
   }
 
-  // ------------------------------------------------------------ add form
+  // ------------------------------------------------------------ add modal
 
   function authorRowHtml(value) {
     return `
@@ -605,128 +605,289 @@
   }
 
   function openAddModal() {
-    modalRoot.innerHTML = `
-      <div class="modal-backdrop" id="add-backdrop">
-        <div class="modal">
-          <div class="modal-header">
-            <h2>Add citation</h2>
-            <button type="button" class="btn btn-ghost btn-sm" id="add-close">${icon.close}</button>
-          </div>
-          <div id="add-alert"></div>
-          <form id="add-form">
-            <div class="field">
-              <label for="a-title">Title *</label>
-              <input id="a-title" required>
-            </div>
-            <div class="field">
-              <label>Authors</label>
-              <div id="authors-list">${authorRowHtml("")}</div>
-              <button type="button" class="btn btn-sm" id="add-author">+ Add author</button>
-            </div>
-            <div class="two-col">
-              <div class="field">
-                <label for="a-journal">Journal</label>
-                <input id="a-journal">
-              </div>
-              <div class="field">
-                <label for="a-year">Year</label>
-                <input id="a-year" type="number">
-              </div>
-            </div>
-            <div class="two-col">
-              <div class="field">
-                <label for="a-doi">DOI</label>
-                <input id="a-doi">
-              </div>
-              <div class="field">
-                <label for="a-count">Citation count</label>
-                <input id="a-count" type="number" min="0">
-              </div>
-            </div>
-            <div class="field">
-              <label for="a-abstract">Abstract</label>
-              <textarea id="a-abstract" rows="3"></textarea>
-            </div>
-            <div class="field">
-              <label for="a-status">Read status</label>
-              <select id="a-status">
-                <option value="unread" selected>Unread</option>
-                <option value="reading">Reading</option>
-                <option value="read">Read</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="a-notes">Notes</label>
-              <textarea id="a-notes" rows="3"></textarea>
-            </div>
-            <div class="form-actions">
-              <button type="submit" class="btn btn-primary" id="add-submit" style="flex:1">Add citation</button>
-              <button type="button" class="btn" id="add-cancel">Cancel</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    `;
+    let addTab = "doi"; // doi | upload | manual — DOI first: the fastest path for the common case.
+    let uploadKind = "bibtex";
+    let uploadResult = null;
+    let uploadError = null;
 
     const closeModal = () => { modalRoot.innerHTML = ""; location.hash = "#/library"; };
 
-    document.getElementById("add-backdrop").addEventListener("click", (e) => {
-      if (e.target.id === "add-backdrop") closeModal();
-    });
-    document.getElementById("add-close").addEventListener("click", closeModal);
-    document.getElementById("add-cancel").addEventListener("click", closeModal);
+    function renderShellFrame() {
+      modalRoot.innerHTML = `
+        <div class="modal-backdrop" id="add-backdrop">
+          <div class="modal">
+            <div class="modal-header">
+              <h2>Add citation</h2>
+              <button type="button" class="btn btn-ghost btn-sm" id="add-close">${icon.close}</button>
+            </div>
+            <div class="tabs">
+              <button type="button" data-am-tab="doi" class="${addTab === "doi" ? "active" : ""}">DOI lookup</button>
+              <button type="button" data-am-tab="upload" class="${addTab === "upload" ? "active" : ""}">Upload file</button>
+              <button type="button" data-am-tab="manual" class="${addTab === "manual" ? "active" : ""}">Manual entry</button>
+            </div>
+            <div id="add-tab-body"></div>
+          </div>
+        </div>
+      `;
+      document.getElementById("add-backdrop").addEventListener("click", (e) => {
+        if (e.target.id === "add-backdrop") closeModal();
+      });
+      document.getElementById("add-close").addEventListener("click", closeModal);
+      modalRoot.querySelectorAll("[data-am-tab]").forEach((btn) => {
+        btn.addEventListener("click", () => { addTab = btn.dataset.amTab; renderShellFrame(); });
+      });
+      renderTabBody();
+    }
 
-    function wireAuthorRows() {
-      document.querySelectorAll(".remove-author").forEach((btn) => {
-        btn.onclick = () => {
-          const list = document.getElementById("authors-list");
-          if (list.children.length > 1) btn.closest(".author-row").remove();
-          else btn.closest(".author-row").querySelector("input").value = "";
-        };
+    function renderTabBody() {
+      const body = document.getElementById("add-tab-body");
+      if (addTab === "doi") { body.innerHTML = doiTabHtml(); bindDoiTab(); }
+      else if (addTab === "upload") { body.innerHTML = uploadTabHtml(); bindUploadTab(); }
+      else { body.innerHTML = manualTabHtml(); bindManualTab(); }
+    }
+
+    // ---- DOI tab: paste a DOI, it's looked up and added immediately ----
+    function doiTabHtml() {
+      return `
+        <div id="am-doi-alert"></div>
+        <form id="am-doi-form">
+          <div class="field">
+            <label for="am-doi-input">DOI</label>
+            <input id="am-doi-input" placeholder="10.1000/xyz123" required autofocus>
+            <span class="field-hint">Looked up via Crossref and added to your library right away.</span>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="am-doi-submit" style="flex:1">Look up &amp; add</button>
+          </div>
+        </form>
+      `;
+    }
+
+    function bindDoiTab() {
+      document.getElementById("am-doi-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const alertBox = document.getElementById("am-doi-alert");
+        const submitBtn = document.getElementById("am-doi-submit");
+        const doi = document.getElementById("am-doi-input").value.trim();
+        alertBox.innerHTML = "";
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner"></span> Looking up…';
+        try {
+          const created = await Api.importDoi(doi);
+          closeModal();
+          showToast("Citation added.");
+          location.hash = "#/citation/" + created.id;
+        } catch (err) {
+          if (handleAuthError(err)) return;
+          alertBox.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message)}</div>`;
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = "Look up &amp; add";
+        }
       });
     }
-    wireAuthorRows();
 
-    document.getElementById("add-author").addEventListener("click", () => {
-      document.getElementById("authors-list").insertAdjacentHTML("beforeend", authorRowHtml(""));
-      wireAuthorRows();
-    });
-
-    document.getElementById("add-form").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const alertBox = document.getElementById("add-alert");
-      const submitBtn = document.getElementById("add-submit");
-      alertBox.innerHTML = "";
-
-      const authors = Array.from(document.querySelectorAll(".author-input"))
-        .map((i) => i.value.trim()).filter(Boolean);
-
-      const payload = {
-        title: document.getElementById("a-title").value.trim(),
-        authors,
-        journal: document.getElementById("a-journal").value.trim() || null,
-        year: document.getElementById("a-year").value ? Number(document.getElementById("a-year").value) : null,
-        doi: document.getElementById("a-doi").value.trim() || null,
-        citation_count: document.getElementById("a-count").value ? Number(document.getElementById("a-count").value) : null,
-        abstract: document.getElementById("a-abstract").value.trim() || null,
-        notes: document.getElementById("a-notes").value.trim() || null,
-        read_status: document.getElementById("a-status").value,
-      };
-
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<span class="spinner"></span> Adding…';
-      try {
-        const created = await Api.createCitation(payload);
-        modalRoot.innerHTML = "";
-        showToast("Citation added.");
-        location.hash = "#/citation/" + created.id;
-      } catch (err) {
-        if (handleAuthError(err)) return;
-        alertBox.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message)}</div>`;
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = "Add citation";
+    // ---- Upload tab: a single BibTeX/RIS file, quick import ----
+    function uploadTabHtml() {
+      if (uploadResult) {
+        return `
+          ${fileImportResultsHtml(uploadResult)}
+          <div class="form-actions">
+            <button type="button" class="btn btn-primary" id="am-upload-done" style="flex:1">Done</button>
+          </div>
+        `;
       }
-    });
+      const label = uploadKind === "bibtex" ? ".bib" : ".ris";
+      const accept = uploadKind === "bibtex" ? ".bib,.bibtex" : ".ris";
+      return `
+        <div id="am-upload-alert"></div>
+        <div class="toolbar-group" style="margin-bottom:12px">
+          <button type="button" class="btn btn-sm ${uploadKind === "bibtex" ? "btn-primary" : ""}" id="am-kind-bibtex">BibTeX</button>
+          <button type="button" class="btn btn-sm ${uploadKind === "ris" ? "btn-primary" : ""}" id="am-kind-ris">RIS</button>
+        </div>
+        <form id="am-file-form">
+          <label class="dropzone" id="am-dropzone" for="am-file-input">
+            ${icon.upload}
+            <div style="margin-top:10px;font-weight:600">Drop a ${label} file here, or click to browse</div>
+            <div class="field-hint" style="margin-top:4px">Existing citations (matched by DOI) are skipped, not duplicated.</div>
+          </label>
+          <input id="am-file-input" type="file" accept="${accept}" style="display:none">
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="am-file-submit" disabled style="flex:1">Upload &amp; add</button>
+            <span id="am-file-name" class="field-hint"></span>
+          </div>
+        </form>
+      `;
+    }
+
+    function bindUploadTab() {
+      if (uploadResult) {
+        document.getElementById("am-upload-done").addEventListener("click", closeModal);
+        return;
+      }
+
+      document.getElementById("am-kind-bibtex").addEventListener("click", () => {
+        if (uploadKind !== "bibtex") { uploadKind = "bibtex"; renderTabBody(); }
+      });
+      document.getElementById("am-kind-ris").addEventListener("click", () => {
+        if (uploadKind !== "ris") { uploadKind = "ris"; renderTabBody(); }
+      });
+
+      const dropzone = document.getElementById("am-dropzone");
+      const fileInput = document.getElementById("am-file-input");
+      const submitBtn = document.getElementById("am-file-submit");
+      const fileNameEl = document.getElementById("am-file-name");
+      let selectedFile = null;
+
+      fileInput.addEventListener("change", () => {
+        selectedFile = fileInput.files[0] || null;
+        fileNameEl.textContent = selectedFile ? selectedFile.name : "";
+        submitBtn.disabled = !selectedFile;
+      });
+      ["dragover", "dragenter"].forEach((evt) => dropzone.addEventListener(evt, (e) => {
+        e.preventDefault(); dropzone.classList.add("drag");
+      }));
+      ["dragleave", "drop"].forEach((evt) => dropzone.addEventListener(evt, (e) => {
+        e.preventDefault(); dropzone.classList.remove("drag");
+      }));
+      dropzone.addEventListener("drop", (e) => {
+        const f = e.dataTransfer.files[0];
+        if (f) { selectedFile = f; fileNameEl.textContent = f.name; submitBtn.disabled = false; }
+      });
+
+      document.getElementById("am-file-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (!selectedFile) return;
+        const alertBox = document.getElementById("am-upload-alert");
+        alertBox.innerHTML = "";
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner"></span> Uploading…';
+        try {
+          uploadResult = await Api.importFile(uploadKind, selectedFile);
+          renderTabBody();
+        } catch (err) {
+          if (handleAuthError(err)) return;
+          alertBox.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message)}</div>`;
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = "Upload &amp; add";
+        }
+      });
+    }
+
+    // ---- Manual tab: full form for a citation with no DOI ----
+    function manualTabHtml() {
+      return `
+        <div id="am-manual-alert"></div>
+        <form id="am-manual-form">
+          <div class="field">
+            <label for="a-title">Title *</label>
+            <input id="a-title" required>
+          </div>
+          <div class="field">
+            <label>Authors</label>
+            <div id="authors-list">${authorRowHtml("")}</div>
+            <button type="button" class="btn btn-sm" id="add-author">+ Add author</button>
+          </div>
+          <div class="two-col">
+            <div class="field">
+              <label for="a-journal">Journal</label>
+              <input id="a-journal">
+            </div>
+            <div class="field">
+              <label for="a-year">Year</label>
+              <input id="a-year" type="number">
+            </div>
+          </div>
+          <div class="two-col">
+            <div class="field">
+              <label for="a-doi">DOI</label>
+              <input id="a-doi">
+            </div>
+            <div class="field">
+              <label for="a-count">Citation count</label>
+              <input id="a-count" type="number" min="0">
+            </div>
+          </div>
+          <div class="field">
+            <label for="a-abstract">Abstract</label>
+            <textarea id="a-abstract" rows="3"></textarea>
+          </div>
+          <div class="field">
+            <label for="a-status">Read status</label>
+            <select id="a-status">
+              <option value="unread" selected>Unread</option>
+              <option value="reading">Reading</option>
+              <option value="read">Read</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="a-notes">Notes</label>
+            <textarea id="a-notes" rows="3"></textarea>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="add-submit" style="flex:1">Add citation</button>
+            <button type="button" class="btn" id="add-cancel">Cancel</button>
+          </div>
+        </form>
+      `;
+    }
+
+    function bindManualTab() {
+      function wireAuthorRows() {
+        document.querySelectorAll(".remove-author").forEach((btn) => {
+          btn.onclick = () => {
+            const list = document.getElementById("authors-list");
+            if (list.children.length > 1) btn.closest(".author-row").remove();
+            else btn.closest(".author-row").querySelector("input").value = "";
+          };
+        });
+      }
+      wireAuthorRows();
+
+      document.getElementById("add-author").addEventListener("click", () => {
+        document.getElementById("authors-list").insertAdjacentHTML("beforeend", authorRowHtml(""));
+        wireAuthorRows();
+      });
+
+      document.getElementById("add-cancel").addEventListener("click", closeModal);
+
+      document.getElementById("am-manual-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const alertBox = document.getElementById("am-manual-alert");
+        const submitBtn = document.getElementById("add-submit");
+        alertBox.innerHTML = "";
+
+        const authors = Array.from(document.querySelectorAll(".author-input"))
+          .map((i) => i.value.trim()).filter(Boolean);
+
+        const payload = {
+          title: document.getElementById("a-title").value.trim(),
+          authors,
+          journal: document.getElementById("a-journal").value.trim() || null,
+          year: document.getElementById("a-year").value ? Number(document.getElementById("a-year").value) : null,
+          doi: document.getElementById("a-doi").value.trim() || null,
+          citation_count: document.getElementById("a-count").value ? Number(document.getElementById("a-count").value) : null,
+          abstract: document.getElementById("a-abstract").value.trim() || null,
+          notes: document.getElementById("a-notes").value.trim() || null,
+          read_status: document.getElementById("a-status").value,
+        };
+
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner"></span> Adding…';
+        try {
+          const created = await Api.createCitation(payload);
+          closeModal();
+          showToast("Citation added.");
+          location.hash = "#/citation/" + created.id;
+        } catch (err) {
+          if (handleAuthError(err)) return;
+          alertBox.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message)}</div>`;
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = "Add citation";
+        }
+      });
+    }
+
+    renderShellFrame();
   }
 
   // --------------------------------------------------------------- import
@@ -805,7 +966,11 @@
       `;
     }
 
-    const r = importResult;
+    return fileImportResultsHtml(importResult);
+  }
+
+  // Shared by the Import page (bibtex/ris tabs) and the Add-citation modal's upload tab.
+  function fileImportResultsHtml(r) {
     const items = r.items.map((it) => {
       if (it.error) {
         return `<div class="import-item"><span class="err-text">${escapeHtml(it.error)}</span></div>`;
@@ -942,7 +1107,9 @@
     if (top === "citation" && parts[1]) {
       renderDetail(parts[1]);
     } else if (top === "add") {
-      await renderLibrary();
+      // Open as an overlay on whatever's already showing — don't re-fetch/re-render
+      // the page behind it. Only build a page behind it on a cold load straight to #/add.
+      if (!document.querySelector(".shell")) await renderLibrary();
       openAddModal();
     } else if (top === "import") {
       importResult = null;
