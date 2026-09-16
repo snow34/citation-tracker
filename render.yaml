@@ -27,3 +27,9 @@ services:
         value: you@example.com
       - key: ALLOWED_ORIGINS
         value: "https://snow34.github.io"
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        value: "Citation Tracker <onboarding@resend.dev>"
+      - key: FRONTEND_URL
+        value: "https://snow34.github.io/citation-tracker"

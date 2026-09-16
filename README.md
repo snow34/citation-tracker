@@ -65,6 +65,11 @@ the web service and a managed Postgres database in one step.
    - `ALLOWED_ORIGINS` → set to the GitHub Pages origin (`https://snow34.github.io`) so the
      frontend below can call the API cross-origin; update this if the frontend ever moves
      to a different origin. Safe either way since auth is bearer-JWT rather than cookies.
+   - `RESEND_API_KEY` → a key from your [Resend](https://resend.com) dashboard (free tier
+     works; the default sender needs no domain verification). Marked `sync: false` in the
+     Blueprint, so Render prompts for it on first apply and won't overwrite it afterwards.
+     Without it, `/auth/forgot-password` still responds normally but silently fails to
+     actually send the email (see `app/services/auth_service.py`).
 5. From then on, every push to `main` auto-deploys — no separate deploy step needed in CI,
    which stays scoped to lint/migrate/test.
 
@@ -91,7 +96,7 @@ remembered in `localStorage`.
 
 | Area | Endpoints |
 |---|---|
-| Auth | `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/me` |
+| Auth | `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`, `POST /auth/forgot-password`, `POST /auth/reset-password` |
 | Library | `POST /citations`, `GET /citations`, `GET /citations/{id}`, `PATCH /citations/{id}`, `DELETE /citations/{id}` |
 | Import | `POST /citations/import/bibtex`, `POST /citations/import/ris`, `POST /citations/import/doi` |
 

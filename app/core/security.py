@@ -1,3 +1,5 @@
+import hashlib
+import secrets
 from datetime import UTC, datetime, timedelta
 
 import jwt
@@ -31,3 +33,14 @@ def decode_access_token(token: str) -> str:
     settings = get_settings()
     payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
     return payload["sub"]
+
+
+def generate_reset_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def hash_reset_token(token: str) -> str:
+    # A reset token is a single-use, high-entropy random value (unlike a password),
+    # so a fast hash is sufficient here — it just keeps a DB read from being directly
+    # replayable, the same reason we never store it in plaintext.
+    return hashlib.sha256(token.encode()).hexdigest()
