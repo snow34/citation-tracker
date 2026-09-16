@@ -34,6 +34,15 @@ class Settings(BaseSettings):
     # default since auth is bearer-JWT (no cookies), but tighten once a frontend exists.
     allowed_origins: str = "*"
 
+    # Resend (https://resend.com) sends the password-reset email. The onboarding sender
+    # works with no domain/DNS setup — replace once a verified sending domain exists.
+    resend_api_key: str = ""
+    resend_from_email: str = "Citation Tracker <onboarding@resend.dev>"
+
+    # Base URL of the deployed frontend, used to build the link inside reset emails
+    # (as `<frontend_url>/#/reset-password?token=...`), no trailing slash.
+    frontend_url: str = "http://localhost:8080"
+
     @field_validator("database_url", "test_database_url")
     @classmethod
     def _normalize_database_url(cls, value: str) -> str:

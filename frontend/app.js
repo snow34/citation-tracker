@@ -112,6 +112,8 @@
     login: (email, password) => api("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
     me: () => api("/auth/me"),
     logout: () => api("/auth/logout", { method: "POST" }),
+    forgotPassword: (email) => api("/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) }),
+    resetPassword: (token, newPassword) => api("/auth/reset-password", { method: "POST", body: JSON.stringify({ token, new_password: newPassword }) }),
     listCitations: (query) => api("/citations?" + query),
     getCitation: (id) => api("/citations/" + encodeURIComponent(id)),
     createCitation: (data) => api("/citations", { method: "POST", body: JSON.stringify(data) }),
@@ -202,6 +204,7 @@
               </button>
             </div>
           </form>
+          ${isLogin ? '<p style="text-align:center;margin:16px 0 0"><a href="#/forgot-password" style="font-size:13px">Forgot password?</a></p>' : ""}
         </div>
       </div>
     `;
@@ -239,6 +242,108 @@
         alertBox.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message)}</div>`;
         submitBtn.disabled = false;
         submitBtn.innerHTML = isLogin ? "Log in" : "Create account";
+      }
+    });
+  }
+
+  function renderForgotPassword() {
+    app.innerHTML = `
+      <div class="auth-wrap">
+        <div class="auth-card">
+          <div class="auth-logo">${icon.book}<span>Citation Tracker</span></div>
+          <p class="auth-sub">We'll email you a link to reset your password.</p>
+          <div id="fp-alert"></div>
+          <form id="fp-form" novalidate>
+            <div class="field">
+              <label for="fp-email">Email</label>
+              <input id="fp-email" type="email" autocomplete="username" required>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" id="fp-submit" style="flex:1">Send reset link</button>
+            </div>
+          </form>
+          <p style="text-align:center;margin:16px 0 0"><a href="#/login" style="font-size:13px">Back to log in</a></p>
+        </div>
+      </div>
+    `;
+
+    document.getElementById("fp-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("fp-email").value.trim();
+      const alertBox = document.getElementById("fp-alert");
+      const submitBtn = document.getElementById("fp-submit");
+      alertBox.innerHTML = "";
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="spinner"></span> Sending…';
+
+      try {
+        const result = await Api.forgotPassword(email);
+        document.getElementById("fp-form").hidden = true;
+        alertBox.innerHTML = `<div class="alert alert-success">${escapeHtml(result.message)}</div>`;
+      } catch (err) {
+        alertBox.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message)}</div>`;
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = "Send reset link";
+      }
+    });
+  }
+
+  function renderResetPassword(token) {
+    app.innerHTML = `
+      <div class="auth-wrap">
+        <div class="auth-card">
+          <div class="auth-logo">${icon.book}<span>Citation Tracker</span></div>
+          <p class="auth-sub">Choose a new password.</p>
+          <div id="rp-alert"></div>
+          <form id="rp-form" novalidate>
+            <div class="field">
+              <label for="rp-password">New password</label>
+              <input id="rp-password" type="password" autocomplete="new-password" required minlength="8">
+              <span class="field-hint">At least 8 characters.</span>
+            </div>
+            <div class="field">
+              <label for="rp-password-confirm">Confirm new password</label>
+              <input id="rp-password-confirm" type="password" autocomplete="new-password" required minlength="8">
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" id="rp-submit" style="flex:1">Reset password</button>
+            </div>
+          </form>
+          <p style="text-align:center;margin:16px 0 0"><a href="#/login" style="font-size:13px">Back to log in</a></p>
+        </div>
+      </div>
+    `;
+
+    if (!token) {
+      document.getElementById("rp-form").hidden = true;
+      document.getElementById("rp-alert").innerHTML =
+        '<div class="alert alert-error">This reset link is missing its token. Request a new one from the forgot-password page.</div>';
+      return;
+    }
+
+    document.getElementById("rp-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const password = document.getElementById("rp-password").value;
+      const confirm = document.getElementById("rp-password-confirm").value;
+      const alertBox = document.getElementById("rp-alert");
+      const submitBtn = document.getElementById("rp-submit");
+      alertBox.innerHTML = "";
+
+      if (password !== confirm) {
+        alertBox.innerHTML = '<div class="alert alert-error">Passwords don’t match.</div>';
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="spinner"></span> Resetting…';
+      try {
+        const result = await Api.resetPassword(token, password);
+        document.getElementById("rp-form").hidden = true;
+        alertBox.innerHTML = `<div class="alert alert-success">${escapeHtml(result.message)}</div>`;
+      } catch (err) {
+        alertBox.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message)}</div>`;
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = "Reset password";
       }
     });
   }
@@ -1088,7 +1193,9 @@
 
   async function render() {
     const hash = location.hash.slice(1) || "/login";
-    const parts = hash.split("/").filter(Boolean);
+    const [pathPart, queryPart] = hash.split("?");
+    const parts = pathPart.split("/").filter(Boolean);
+    const query = new URLSearchParams(queryPart || "");
     const top = parts[0];
 
     if (top === "login" || top === "register") {
@@ -1096,6 +1203,9 @@
       renderAuth(top);
       return;
     }
+
+    if (top === "forgot-password") { renderForgotPassword(); return; }
+    if (top === "reset-password") { renderResetPassword(query.get("token")); return; }
 
     if (!getToken()) { location.hash = "#/login"; return; }
 

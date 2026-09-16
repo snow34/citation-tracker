@@ -7,7 +7,14 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 from app.config import get_settings
-from app.models import citation, collection, tag, user, user_citation  # noqa: F401
+from app.models import (  # noqa: F401
+    citation,
+    collection,
+    password_reset_token,
+    tag,
+    user,
+    user_citation,
+)
 from app.models.base import Base
 
 # this is the Alembic Config object, which provides
