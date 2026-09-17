@@ -26,7 +26,7 @@ services:
       - key: CROSSREF_MAILTO
         value: you@example.com
       - key: ALLOWED_ORIGINS
-        value: "https://snow34.github.io"
+        value: "*"
       - key: RESEND_API_KEY
         sync: false
       - key: RESEND_FROM_EMAIL
