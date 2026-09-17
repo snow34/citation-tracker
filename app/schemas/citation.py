@@ -93,13 +93,20 @@ class ImportResultOut(BaseModel):
     items: list[ImportResultItem]
 
 
-class CitationStyleOut(BaseModel):
+class CitationKindOut(BaseModel):
     key: str
     label: str
 
 
+class CitationStyleOut(BaseModel):
+    key: str
+    label: str
+    kinds: list[CitationKindOut]
+
+
 class CitationFormatOut(BaseModel):
     style: str
+    kind: str
     text: str
 
 
