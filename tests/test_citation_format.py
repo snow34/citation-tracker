@@ -4,8 +4,10 @@ from httpx import AsyncClient
 async def test_list_styles_includes_apa(client: AsyncClient):
     resp = await client.get("/citations/styles")
     assert resp.status_code == 200
-    keys = [s["key"] for s in resp.json()]
-    assert "apa" in keys
+    styles = resp.json()
+    apa = next(s for s in styles if s["key"] == "apa")
+    kind_keys = [k["key"] for k in apa["kinds"]]
+    assert kind_keys == ["reference", "in_text_parenthetical", "in_text_narrative"]
 
 
 async def test_format_single_author_apa(client: AsyncClient, auth_headers: dict[str, str]):
@@ -61,6 +63,85 @@ async def test_format_three_plus_authors_apa(client: AsyncClient, auth_headers: 
     assert resp.json()["text"] == (
         "Alpha, A., Beta, B., & Gamma, C. (2020). Group Paper."
     )
+
+
+async def test_in_text_parenthetical_apa(client: AsyncClient, auth_headers: dict[str, str]):
+    resp = await client.post(
+        "/citations",
+        headers=auth_headers,
+        json={"title": "Solo Paper", "authors": ["Ashish Vaswani"], "year": 2017},
+    )
+    entry_id = resp.json()["id"]
+
+    resp = await client.get(
+        f"/citations/{entry_id}/format?kind=in_text_parenthetical", headers=auth_headers
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["kind"] == "in_text_parenthetical"
+    assert body["text"] == "(Vaswani, 2017)"
+
+
+async def test_in_text_narrative_two_authors_apa(
+    client: AsyncClient, auth_headers: dict[str, str]
+):
+    resp = await client.post(
+        "/citations",
+        headers=auth_headers,
+        json={"title": "Duo Paper", "authors": ["Jane Doe", "John Smith"], "year": 2021},
+    )
+    entry_id = resp.json()["id"]
+
+    resp = await client.get(
+        f"/citations/{entry_id}/format?kind=in_text_narrative", headers=auth_headers
+    )
+    assert resp.json()["text"] == "Doe and Smith (2021)"
+
+
+async def test_in_text_parenthetical_three_plus_authors_apa(
+    client: AsyncClient, auth_headers: dict[str, str]
+):
+    resp = await client.post(
+        "/citations",
+        headers=auth_headers,
+        json={
+            "title": "Group Paper",
+            "authors": ["Alice Alpha", "Bob Beta", "Carol Gamma"],
+            "year": 2020,
+        },
+    )
+    entry_id = resp.json()["id"]
+
+    resp = await client.get(
+        f"/citations/{entry_id}/format?kind=in_text_parenthetical", headers=auth_headers
+    )
+    assert resp.json()["text"] == "(Alpha et al., 2020)"
+
+
+async def test_in_text_no_authors_uses_short_title_apa(
+    client: AsyncClient, auth_headers: dict[str, str]
+):
+    resp = await client.post(
+        "/citations",
+        headers=auth_headers,
+        json={"title": "Anonymous Report", "authors": [], "year": 2019},
+    )
+    entry_id = resp.json()["id"]
+
+    resp = await client.get(
+        f"/citations/{entry_id}/format?kind=in_text_parenthetical", headers=auth_headers
+    )
+    assert resp.json()["text"] == '("Anonymous Report," 2019)'
+
+
+async def test_format_unknown_kind_rejected(client: AsyncClient, auth_headers: dict[str, str]):
+    resp = await client.post(
+        "/citations", headers=auth_headers, json={"title": "Some Paper", "authors": []}
+    )
+    entry_id = resp.json()["id"]
+
+    resp = await client.get(f"/citations/{entry_id}/format?kind=footnote", headers=auth_headers)
+    assert resp.status_code == 400
 
 
 async def test_format_unknown_style_rejected(client: AsyncClient, auth_headers: dict[str, str]):

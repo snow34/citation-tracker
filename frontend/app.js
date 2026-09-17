@@ -127,7 +127,7 @@
     },
     importDoi: (doi) => api("/citations/import/doi", { method: "POST", body: JSON.stringify({ doi }) }),
     listCitationStyles: () => api("/citations/styles"),
-    formatCitation: (id, style) => api(`/citations/${encodeURIComponent(id)}/format?style=${encodeURIComponent(style)}`),
+    formatCitation: (id, style, kind) => api(`/citations/${encodeURIComponent(id)}/format?style=${encodeURIComponent(style)}&kind=${encodeURIComponent(kind)}`),
     formatBibliography: (ids, style) => api(`/citations/bibliography?style=${encodeURIComponent(style)}`, {
       method: "POST", body: JSON.stringify({ citation_ids: ids }),
     }),
@@ -146,6 +146,8 @@
 
   function getPreferredStyle() { return localStorage.getItem("ct_citation_style") || "apa"; }
   function setPreferredStyle(style) { localStorage.setItem("ct_citation_style", style); }
+  function getPreferredKind() { return localStorage.getItem("ct_citation_kind") || "reference"; }
+  function setPreferredKind(kind) { localStorage.setItem("ct_citation_kind", kind); }
 
   async function copyToClipboard(text) {
     if (navigator.clipboard && window.isSecureContext) {
@@ -660,7 +662,16 @@
     }
 
     mainEl().innerHTML = detailContentHtml(item, styles);
-    bindDetailEvents(item);
+    bindDetailEvents(item, styles);
+  }
+
+  function kindOptionsHtml(styles, styleKey, preferredKind) {
+    const style = styles.find((s) => s.key === styleKey) || styles[0];
+    const kinds = style ? style.kinds : [];
+    const validKind = kinds.some((k) => k.key === preferredKind) ? preferredKind : (kinds[0] || {}).key;
+    return kinds.map((k) =>
+      `<option value="${escapeHtml(k.key)}" ${k.key === validKind ? "selected" : ""}>${escapeHtml(k.label)}</option>`
+    ).join("");
   }
 
   function detailContentHtml(item, styles) {
@@ -670,6 +681,7 @@
     const styleOptions = styles.map((s) =>
       `<option value="${escapeHtml(s.key)}" ${s.key === preferred ? "selected" : ""}>${escapeHtml(s.label)}</option>`
     ).join("");
+    const kindOptions = kindOptionsHtml(styles, preferred, getPreferredKind());
 
     return `
       <a href="#/library" class="back-link">${icon.chevronLeft} Back to library</a>
@@ -754,9 +766,15 @@
 
           <div class="panel">
             <h3>Cite this</h3>
-            <div class="field">
-              <label for="cite-style">Style</label>
-              <select id="cite-style">${styleOptions}</select>
+            <div class="two-col">
+              <div class="field">
+                <label for="cite-style">Style</label>
+                <select id="cite-style">${styleOptions}</select>
+              </div>
+              <div class="field">
+                <label for="cite-kind">Format</label>
+                <select id="cite-kind">${kindOptions}</select>
+              </div>
             </div>
             <div id="cite-preview" class="cite-preview"></div>
             <div class="form-actions">
@@ -775,7 +793,7 @@
     `;
   }
 
-  function bindDetailEvents(item) {
+  function bindDetailEvents(item, styles) {
     document.getElementById("meta-form").addEventListener("submit", async (e) => {
       e.preventDefault();
       const alertBox = document.getElementById("detail-alert");
@@ -840,13 +858,14 @@
     });
 
     const citeStyleSel = document.getElementById("cite-style");
+    const citeKindSel = document.getElementById("cite-kind");
     const citePreview = document.getElementById("cite-preview");
     const copyCiteBtn = document.getElementById("copy-cite-btn");
 
     async function refreshCitePreview() {
       citePreview.textContent = "Loading…";
       try {
-        const result = await Api.formatCitation(item.id, citeStyleSel.value);
+        const result = await Api.formatCitation(item.id, citeStyleSel.value, citeKindSel.value);
         citePreview.textContent = result.text;
       } catch (err) {
         if (handleAuthError(err)) return;
@@ -857,6 +876,12 @@
 
     citeStyleSel.addEventListener("change", () => {
       setPreferredStyle(citeStyleSel.value);
+      citeKindSel.innerHTML = kindOptionsHtml(styles, citeStyleSel.value, citeKindSel.value);
+      setPreferredKind(citeKindSel.value);
+      refreshCitePreview();
+    });
+    citeKindSel.addEventListener("change", () => {
+      setPreferredKind(citeKindSel.value);
       refreshCitePreview();
     });
     copyCiteBtn.addEventListener("click", async () => {

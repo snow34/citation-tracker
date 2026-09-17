@@ -11,6 +11,7 @@ from app.schemas.citation import (
     BibliographyRequest,
     CitationCreate,
     CitationFormatOut,
+    CitationKindOut,
     CitationListOut,
     CitationOut,
     CitationStyleOut,
@@ -62,7 +63,14 @@ async def list_citations(
 
 @router.get("/styles", response_model=list[CitationStyleOut])
 async def list_citation_styles() -> list[CitationStyleOut]:
-    return [CitationStyleOut(key=s.key, label=s.label) for s in citation_format.list_styles()]
+    return [
+        CitationStyleOut(
+            key=s.key,
+            label=s.label,
+            kinds=[CitationKindOut(key=k, label=v.label) for k, v in s.kinds.items()],
+        )
+        for s in citation_format.list_styles()
+    ]
 
 
 @router.post("/bibliography", response_model=BibliographyOut)
@@ -91,12 +99,13 @@ async def get_citation(
 async def format_citation(
     user_citation_id: uuid.UUID,
     style: str = "apa",
+    kind: str = citation_format.DEFAULT_KIND,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> CitationFormatOut:
     entry = await citation_service.get_library_entry(db, current_user.id, user_citation_id)
-    text = citation_format.format_citation(entry.citation, style)
-    return CitationFormatOut(style=style, text=text)
+    text = citation_format.format_citation(entry.citation, style, kind)
+    return CitationFormatOut(style=style, kind=kind, text=text)
 
 
 @router.patch("/{user_citation_id}", response_model=CitationOut)
