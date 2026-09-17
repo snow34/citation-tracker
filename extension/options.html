@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Citation Tracker Clipper — Settings</title>
+<link rel="stylesheet" href="popup.css" />
+<style>
+  html, body { width: auto; max-width: 480px; margin: 24px auto; }
+  h1 { font-size: 16px; }
+</style>
+</head>
+<body>
+  <div class="pad">
+    <h1>Citation Tracker Clipper — Settings</h1>
+
+    <p class="muted" id="session-status">Checking session…</p>
+
+    <form id="settings-form">
+      <label>API base URL
+        <input type="url" name="apiBase" placeholder="https://your-backend.example.com" />
+      </label>
+      <p class="muted small">
+        Defaults to the deployed Citation Tracker backend. Only change this if you're
+        running your own instance (e.g. <code>http://localhost:8000</code>).
+      </p>
+      <p class="error" id="settings-error" hidden></p>
+      <p class="success" id="settings-success" hidden></p>
+      <button type="submit" class="primary">Save</button>
+      <button type="button" id="logout-btn">Log out</button>
+    </form>
+  </div>
+
+  <script src="api.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

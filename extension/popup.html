@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Citation Tracker</title>
+<link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+<div id="app">Loading…</div>
+
+<template id="tpl-login">
+  <header class="bar">
+    <strong>Citation Tracker</strong>
+  </header>
+  <form id="login-form" class="pad">
+    <p class="muted">Log in to add this page to your library.</p>
+    <label>Email
+      <input type="email" name="email" required autocomplete="username" />
+    </label>
+    <label>Password
+      <input type="password" name="password" required autocomplete="current-password" />
+    </label>
+    <p class="error" id="login-error" hidden></p>
+    <button type="submit" class="primary full">Log in</button>
+    <p class="muted small">
+      Don't have an account? Register on the
+      <a id="open-web-app" href="#">web app</a> first.
+    </p>
+  </form>
+</template>
+
+<template id="tpl-main">
+  <header class="bar">
+    <strong>Citation Tracker</strong>
+    <span class="spacer"></span>
+    <a href="#" id="open-settings" title="Settings">Settings</a>
+    <a href="#" id="logout" title="Log out">Log out</a>
+  </header>
+
+  <div class="pad">
+    <p class="banner" id="doi-banner" hidden>
+      <span id="doi-banner-text"></span>
+      <button type="button" id="import-doi-btn" class="primary small">Add via DOI</button>
+    </p>
+
+    <p class="error" id="form-error" hidden></p>
+    <p class="success" id="form-success" hidden></p>
+
+    <form id="citation-form">
+      <label>Title *
+        <input type="text" name="title" required />
+      </label>
+      <label>Authors <span class="muted small">(comma-separated)</span>
+        <input type="text" name="authors" />
+      </label>
+      <div class="row">
+        <label class="grow">Journal
+          <input type="text" name="journal" />
+        </label>
+        <label class="year">Year
+          <input type="number" name="year" min="1000" max="9999" />
+        </label>
+      </div>
+      <label>DOI
+        <input type="text" name="doi" placeholder="10.xxxx/xxxxx" />
+      </label>
+      <label>Abstract
+        <textarea name="abstract" rows="2"></textarea>
+      </label>
+      <label>Notes
+        <textarea name="notes" rows="2"></textarea>
+      </label>
+      <button type="submit" class="primary full">Add to Library</button>
+    </form>
+  </div>
+</template>
+
+<script src="api.js"></script>
+<script src="popup.js"></script>
+</body>
+</html>

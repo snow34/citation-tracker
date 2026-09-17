@@ -92,6 +92,14 @@ The frontend points at the deployed Render backend by default. To point it at a 
 API (e.g. `localhost:8000` for local dev), open it with `?api=<url>` once — the override is
 remembered in `localStorage`.
 
+## Browser extension
+
+`extension/` is a standalone Firefox extension ("Citation Tracker Clipper") that adds the
+article you're viewing — Scopus, Taylor & Francis Online, and most other publisher pages,
+via the standard `citation_*` meta tags they embed — to your library in one click, using
+the same API as the web frontend. See `extension/README.md` for how to load it in Firefox
+and how it works.
+
 ## API overview
 
 | Area | Endpoints |

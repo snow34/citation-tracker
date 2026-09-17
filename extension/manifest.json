@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Citation Tracker Clipper",
+  "version": "0.1.0",
+  "description": "Add the article you're viewing (Scopus, Taylor & Francis Online, and most other publisher pages) to your Citation Tracker library in one click.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "citation-clipper@citation-tracker.local",
+      "strict_min_version": "109.0"
+    }
+  },
+  "permissions": ["storage", "activeTab", "scripting"],
+  "optional_host_permissions": ["*://*/*"],
+  "host_permissions": [
+    "https://citation-tracker-j9do.onrender.com/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Add to Citation Tracker"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  }
+}
