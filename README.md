@@ -94,11 +94,11 @@ remembered in `localStorage`.
 
 ## Browser extension
 
-`extension/` is a standalone Firefox extension ("Citation Tracker Clipper") that adds the
-article you're viewing — Scopus, Taylor & Francis Online, and most other publisher pages,
-via the standard `citation_*` meta tags they embed — to your library in one click, using
-the same API as the web frontend. See `extension/README.md` for how to load it in Firefox
-and how it works.
+`extension/` is a standalone Firefox & Chrome extension ("Citation Tracker Clipper") that
+adds the article you're viewing — Scopus, Taylor & Francis Online, and most other publisher
+pages, via the standard `citation_*` meta tags they embed — to your library in one click,
+using the same API as the web frontend. See `extension/README.md` for how to load it in
+either browser and how it works.
 
 ## API overview
 
