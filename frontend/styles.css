@@ -307,6 +307,21 @@ textarea { font-family: inherit; resize: vertical; }
 
 .toolbar select, .toolbar input { min-height: 32px; padding: 5px 8px; font-size: 13px; }
 
+.selection-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+.selection-bar select { min-height: 30px; padding: 4px 6px; font-size: 13px; }
+.selection-bar .spacer { flex: 1; }
+
 /* ---------- Library table ---------- */
 
 .lib-table-wrap {
@@ -342,6 +357,7 @@ table.lib-table {
 .lib-table tbody tr:hover { background: var(--surface-alt); }
 .lib-table tbody tr:last-child td { border-bottom: none; }
 
+.cell-select { width: 1%; padding-right: 0; }
 .cell-title { font-weight: 600; max-width: 380px; }
 .cell-title .row-doi { font-weight: 400; color: var(--text-muted); font-size: 12px; margin-top: 2px; }
 .cell-muted { color: var(--text-muted); }
@@ -480,6 +496,17 @@ table.lib-table {
 .detail-title { font-size: 20px; font-weight: 700; margin: 0 0 6px; }
 .detail-meta { color: var(--text-muted); font-size: 13px; margin-bottom: 14px; }
 .detail-abstract { white-space: pre-wrap; }
+
+.cite-preview {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  font-size: 13px;
+  white-space: pre-wrap;
+  margin: 10px 0;
+  min-height: 40px;
+}
 
 .shared-note {
   display: flex;

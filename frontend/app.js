@@ -20,6 +20,7 @@
   let importTab = "bibtex";
   let importResult = null;
   let importError = null;
+  let selectedIds = new Set(); // survives pagination/filtering so a bibliography can span pages
 
   // ---------------------------------------------------------------- utils
 
@@ -125,7 +126,46 @@
       return api("/citations/import/" + kind, { method: "POST", body: fd });
     },
     importDoi: (doi) => api("/citations/import/doi", { method: "POST", body: JSON.stringify({ doi }) }),
+    listCitationStyles: () => api("/citations/styles"),
+    formatCitation: (id, style) => api(`/citations/${encodeURIComponent(id)}/format?style=${encodeURIComponent(style)}`),
+    formatBibliography: (ids, style) => api(`/citations/bibliography?style=${encodeURIComponent(style)}`, {
+      method: "POST", body: JSON.stringify({ citation_ids: ids }),
+    }),
   };
+
+  // --------------------------------------------------------- citation styles
+
+  let citationStylesCache = null;
+
+  async function getCitationStyles() {
+    if (!citationStylesCache) {
+      citationStylesCache = await Api.listCitationStyles();
+    }
+    return citationStylesCache;
+  }
+
+  function getPreferredStyle() { return localStorage.getItem("ct_citation_style") || "apa"; }
+  function setPreferredStyle(style) { localStorage.setItem("ct_citation_style", style); }
+
+  async function copyToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+    // Fallback for non-secure contexts (e.g. plain-HTTP local dev).
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try {
+      if (!document.execCommand("copy")) throw new Error("execCommand failed");
+    } finally {
+      document.body.removeChild(ta);
+    }
+  }
 
   function handleAuthError(err) {
     if (err && err.status === 401) {
@@ -371,20 +411,44 @@
   async function renderLibrary() {
     mountShell("library", `<div class="loading-block"><span class="spinner"></span> Loading library…</div>`);
 
-    let data;
+    let data, styles;
     try {
-      data = await Api.listCitations(libraryQueryString());
+      [data, styles] = await Promise.all([
+        Api.listCitations(libraryQueryString()),
+        getCitationStyles(),
+      ]);
     } catch (err) {
       if (handleAuthError(err)) return;
       mainEl().innerHTML = `<div class="alert alert-error">${escapeHtml(err.message)}</div>`;
       return;
     }
 
-    mainEl().innerHTML = libraryContentHtml(data);
+    // Drop selected ids that no longer exist server-side isn't checked here — the
+    // bibliography endpoint validates ownership and would 404 on a stale id, which is
+    // vanishingly unlikely (only happens if the citation was deleted elsewhere mid-session).
+    mainEl().innerHTML = libraryContentHtml(data, styles);
     bindLibraryEvents(data);
   }
 
-  function libraryContentHtml(data) {
+  function selectionBarHtml(styles) {
+    const preferred = getPreferredStyle();
+    const options = styles.map((s) =>
+      `<option value="${escapeHtml(s.key)}" ${s.key === preferred ? "selected" : ""}>${escapeHtml(s.label)}</option>`
+    ).join("");
+    const count = selectedIds.size;
+    return `
+      <div class="selection-bar">
+        <span id="sel-count">${count} selected</span>
+        <span class="spacer"></span>
+        <label for="f-style" class="cell-muted">Style</label>
+        <select id="f-style">${options}</select>
+        <button type="button" class="btn btn-sm btn-primary" id="copy-bib-btn" ${count === 0 ? "disabled" : ""}>Copy bibliography</button>
+        <button type="button" class="btn btn-sm btn-ghost" id="clear-sel-btn" ${count === 0 ? "disabled" : ""}>Clear selection</button>
+      </div>
+    `;
+  }
+
+  function libraryContentHtml(data, styles) {
     const hasFilters = libState.q || libState.journal || libState.year || libState.read_status;
 
     const toolbar = `
@@ -432,8 +496,10 @@
     const rows = data.items.map((item) => {
       const c = item.citation;
       const authors = (c.authors || []).join(", ") || "—";
+      const checked = selectedIds.has(item.id) ? "checked" : "";
       return `
         <tr data-id="${escapeHtml(item.id)}">
+          <td class="cell-select"><input type="checkbox" class="row-select" data-id="${escapeHtml(item.id)}" ${checked}></td>
           <td class="cell-title">
             ${escapeHtml(c.title)}${item.notes ? '<span class="note-dot" title="Has notes"></span>' : ""}
             ${c.doi ? `<div class="row-doi">${escapeHtml(c.doi)}</div>` : ""}
@@ -447,13 +513,16 @@
     }).join("");
 
     const totalPages = Math.max(1, Math.ceil(data.total / data.page_size));
+    const allVisibleSelected = data.items.every((item) => selectedIds.has(item.id));
 
     return `
       ${toolbar}
+      ${selectionBarHtml(styles)}
       <div class="lib-table-wrap">
         <table class="lib-table">
           <thead>
             <tr>
+              <th><input type="checkbox" id="select-all-visible" ${allVisibleSelected ? "checked" : ""}></th>
               <th>Title</th><th>Authors</th><th>Journal</th><th>Year</th><th>Status</th>
             </tr>
           </thead>
@@ -512,8 +581,65 @@
     });
 
     app.querySelectorAll("tr[data-id]").forEach((row) => {
-      row.addEventListener("click", () => { location.hash = "#/citation/" + row.dataset.id; });
+      row.addEventListener("click", (e) => {
+        if (e.target.closest("input, button, a")) return; // let checkbox clicks through
+        location.hash = "#/citation/" + row.dataset.id;
+      });
     });
+
+    const styleSel = document.getElementById("f-style");
+    if (styleSel) styleSel.addEventListener("change", (e) => { setPreferredStyle(e.target.value); });
+
+    app.querySelectorAll(".row-select").forEach((cb) => {
+      cb.addEventListener("change", (e) => {
+        const id = e.target.dataset.id;
+        if (e.target.checked) selectedIds.add(id); else selectedIds.delete(id);
+        updateSelectionBar(data);
+      });
+    });
+
+    const selectAll = document.getElementById("select-all-visible");
+    if (selectAll) selectAll.addEventListener("change", (e) => {
+      data.items.forEach((item) => {
+        if (e.target.checked) selectedIds.add(item.id); else selectedIds.delete(item.id);
+      });
+      renderLibrary();
+    });
+
+    const clearSelBtn = document.getElementById("clear-sel-btn");
+    if (clearSelBtn) clearSelBtn.addEventListener("click", () => {
+      selectedIds.clear();
+      renderLibrary();
+    });
+
+    const copyBibBtn = document.getElementById("copy-bib-btn");
+    if (copyBibBtn) copyBibBtn.addEventListener("click", async () => {
+      const style = document.getElementById("f-style").value;
+      copyBibBtn.disabled = true;
+      try {
+        const result = await Api.formatBibliography(Array.from(selectedIds), style);
+        await copyToClipboard(result.text);
+        showToast(`Copied bibliography (${result.count} citation${result.count === 1 ? "" : "s"}) to clipboard.`);
+      } catch (err) {
+        if (handleAuthError(err)) return;
+        showToast(err.message, true);
+      } finally {
+        copyBibBtn.disabled = selectedIds.size === 0;
+      }
+    });
+  }
+
+  // Cheap in-place refresh of the selection count/buttons without re-rendering the
+  // whole table (and losing scroll position) on every single checkbox click.
+  function updateSelectionBar(data) {
+    const countEl = document.getElementById("sel-count");
+    if (countEl) countEl.textContent = `${selectedIds.size} selected`;
+    const copyBtn = document.getElementById("copy-bib-btn");
+    if (copyBtn) copyBtn.disabled = selectedIds.size === 0;
+    const clearBtn = document.getElementById("clear-sel-btn");
+    if (clearBtn) clearBtn.disabled = selectedIds.size === 0;
+    const selectAll = document.getElementById("select-all-visible");
+    if (selectAll) selectAll.checked = data.items.every((item) => selectedIds.has(item.id));
   }
 
   // -------------------------------------------------------------- detail
@@ -521,9 +647,9 @@
   async function renderDetail(id) {
     mountShell("library", `<div class="loading-block"><span class="spinner"></span> Loading citation…</div>`);
 
-    let item;
+    let item, styles;
     try {
-      item = await Api.getCitation(id);
+      [item, styles] = await Promise.all([Api.getCitation(id), getCitationStyles()]);
     } catch (err) {
       if (handleAuthError(err)) return;
       mainEl().innerHTML = `
@@ -533,13 +659,17 @@
       return;
     }
 
-    mainEl().innerHTML = detailContentHtml(item);
+    mainEl().innerHTML = detailContentHtml(item, styles);
     bindDetailEvents(item);
   }
 
-  function detailContentHtml(item) {
+  function detailContentHtml(item, styles) {
     const c = item.citation;
     const authorsStr = (c.authors || []).join(", ");
+    const preferred = getPreferredStyle();
+    const styleOptions = styles.map((s) =>
+      `<option value="${escapeHtml(s.key)}" ${s.key === preferred ? "selected" : ""}>${escapeHtml(s.label)}</option>`
+    ).join("");
 
     return `
       <a href="#/library" class="back-link">${icon.chevronLeft} Back to library</a>
@@ -623,6 +753,18 @@
           </div>
 
           <div class="panel">
+            <h3>Cite this</h3>
+            <div class="field">
+              <label for="cite-style">Style</label>
+              <select id="cite-style">${styleOptions}</select>
+            </div>
+            <div id="cite-preview" class="cite-preview"></div>
+            <div class="form-actions">
+              <button type="button" class="btn btn-primary" id="copy-cite-btn" style="flex:1">Copy citation</button>
+            </div>
+          </div>
+
+          <div class="panel">
             <h3>Record info</h3>
             <div class="detail-meta">
               Added to your library ${fmtDate(item.added_at)}${c.doi ? `<br><a href="https://doi.org/${escapeHtml(c.doi)}" target="_blank" rel="noopener">View at doi.org →</a>` : ""}
@@ -696,6 +838,38 @@
         }
       });
     });
+
+    const citeStyleSel = document.getElementById("cite-style");
+    const citePreview = document.getElementById("cite-preview");
+    const copyCiteBtn = document.getElementById("copy-cite-btn");
+
+    async function refreshCitePreview() {
+      citePreview.textContent = "Loading…";
+      try {
+        const result = await Api.formatCitation(item.id, citeStyleSel.value);
+        citePreview.textContent = result.text;
+      } catch (err) {
+        if (handleAuthError(err)) return;
+        citePreview.textContent = "";
+        showToast(err.message, true);
+      }
+    }
+
+    citeStyleSel.addEventListener("change", () => {
+      setPreferredStyle(citeStyleSel.value);
+      refreshCitePreview();
+    });
+    copyCiteBtn.addEventListener("click", async () => {
+      if (!citePreview.textContent) return;
+      try {
+        await copyToClipboard(citePreview.textContent);
+        showToast("Citation copied to clipboard.");
+      } catch (err) {
+        showToast("Couldn't copy to clipboard: " + err.message, true);
+      }
+    });
+
+    refreshCitePreview();
   }
 
   // ------------------------------------------------------------ add modal
