@@ -91,3 +91,23 @@ class ImportResultOut(BaseModel):
     skipped: int
     errors: int
     items: list[ImportResultItem]
+
+
+class CitationStyleOut(BaseModel):
+    key: str
+    label: str
+
+
+class CitationFormatOut(BaseModel):
+    style: str
+    text: str
+
+
+class BibliographyRequest(BaseModel):
+    citation_ids: list[uuid.UUID] = Field(min_length=1)
+
+
+class BibliographyOut(BaseModel):
+    style: str
+    text: str
+    count: int

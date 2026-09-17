@@ -164,6 +164,22 @@ async def get_library_entry(db: AsyncSession, user_id: uuid.UUID, entry_id: uuid
     return entry
 
 
+async def get_library_entries(
+    db: AsyncSession, user_id: uuid.UUID, entry_ids: list[uuid.UUID]
+) -> list[UserCitation]:
+    result = await db.scalars(
+        select(UserCitation).where(
+            UserCitation.id.in_(entry_ids), UserCitation.user_id == user_id
+        )
+    )
+    entries = list(result.all())
+    found_ids = {entry.id for entry in entries}
+    missing = [str(i) for i in entry_ids if i not in found_ids]
+    if missing:
+        raise NotFoundError(f"Citation(s) not found in your library: {', '.join(missing)}")
+    return entries
+
+
 async def update_library_entry(
     db: AsyncSession, user_id: uuid.UUID, entry_id: uuid.UUID, data: CitationUpdate
 ) -> UserCitation:

@@ -7,14 +7,18 @@ from app.database import get_db
 from app.dependencies import LibraryQueryParams, get_current_user
 from app.models.user import User
 from app.schemas.citation import (
+    BibliographyOut,
+    BibliographyRequest,
     CitationCreate,
+    CitationFormatOut,
     CitationListOut,
     CitationOut,
+    CitationStyleOut,
     CitationUpdate,
     DoiImportRequest,
     ImportResultOut,
 )
-from app.services import citation_service, import_service
+from app.services import citation_format, citation_service, import_service
 from app.services.crossref_client import fetch_doi_metadata
 
 router = APIRouter(prefix="/citations", tags=["citations"])
@@ -56,6 +60,23 @@ async def list_citations(
     )
 
 
+@router.get("/styles", response_model=list[CitationStyleOut])
+async def list_citation_styles() -> list[CitationStyleOut]:
+    return [CitationStyleOut(key=s.key, label=s.label) for s in citation_format.list_styles()]
+
+
+@router.post("/bibliography", response_model=BibliographyOut)
+async def format_bibliography(
+    data: BibliographyRequest,
+    style: str = "apa",
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> BibliographyOut:
+    entries = await citation_service.get_library_entries(db, current_user.id, data.citation_ids)
+    text = citation_format.format_bibliography((e.citation for e in entries), style)
+    return BibliographyOut(style=style, text=text, count=len(entries))
+
+
 @router.get("/{user_citation_id}", response_model=CitationOut)
 async def get_citation(
     user_citation_id: uuid.UUID,
@@ -64,6 +85,18 @@ async def get_citation(
 ) -> CitationOut:
     entry = await citation_service.get_library_entry(db, current_user.id, user_citation_id)
     return CitationOut.model_validate(entry)
+
+
+@router.get("/{user_citation_id}/format", response_model=CitationFormatOut)
+async def format_citation(
+    user_citation_id: uuid.UUID,
+    style: str = "apa",
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> CitationFormatOut:
+    entry = await citation_service.get_library_entry(db, current_user.id, user_citation_id)
+    text = citation_format.format_citation(entry.citation, style)
+    return CitationFormatOut(style=style, text=text)
 
 
 @router.patch("/{user_citation_id}", response_model=CitationOut)
