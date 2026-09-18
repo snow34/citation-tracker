@@ -100,6 +100,15 @@ pages, via the standard `citation_*` meta tags they embed — to your library in
 using the same API as the web frontend. See `extension/README.md` for how to load it in
 either browser and how it works.
 
+## Desktop app
+
+`desktop/` is a standalone Electron shell around the same API — same account, same
+library, no separate backend. It loads `frontend/`'s existing HTML/CSS/JS directly
+(not copied), so any web-frontend feature works in the desktop app too. See
+`desktop/README.md` for how to run it and its architecture. Currently a bare shell
+(no packaging/installer yet); see the project's desktop-app plan for the staged
+rollout toward a distributable, auto-updating app.
+
 ## API overview
 
 | Area | Endpoints |

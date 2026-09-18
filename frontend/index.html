@@ -3,6 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!--
+    Applies on GitHub Pages too (harmless there — no inline scripts are used),
+    but exists mainly for the desktop app's app:// origin (see desktop/src/protocol.js).
+    style-src allows 'unsafe-inline' because app.js sets inline style="..." attributes
+    in template strings; connect-src stays broad so the existing ?api=/ct_api_base
+    override keeps working against a local dev backend.
+  -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self';
+    style-src 'self' 'unsafe-inline';
+    img-src 'self' data:;
+    connect-src 'self' https: http://localhost:* http://127.0.0.1:*;
+    base-uri 'none'; form-action 'none';
+  ">
   <title>Citation Tracker</title>
   <link rel="stylesheet" href="styles.css">
 </head>

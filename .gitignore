@@ -10,3 +10,10 @@ venv/
 .coverage
 htmlcov/
 build/
+
+node_modules/
+desktop/dist/
+# The top-level "build/" rule above would otherwise also hide desktop/build/,
+# which holds the (future) electron-builder icon source — not a build artifact.
+!desktop/build/
+!desktop/build/**
