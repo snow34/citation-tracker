@@ -18,11 +18,21 @@ from the repo's `../frontend` directory. The window talks to the same deployed
 backend `frontend/app.js` defaults to. To point at a local `uvicorn` instance instead:
 
 ```bash
+# macOS/Linux (bash/zsh)
 CT_DESKTOP_API_BASE=http://127.0.0.1:8000 npm start
+```
+```powershell
+# Windows (PowerShell)
+$env:CT_DESKTOP_API_BASE = "http://127.0.0.1:8000"
+npm start
 ```
 
 (There's no URL bar to type `frontend/app.js`'s usual `?api=...` override into, so
 this env var is the desktop equivalent — see `src/main.js`.)
+
+On Windows, if `npm`/`npm start` fails with a script-execution-policy error, that's
+PowerShell blocking npm's `.ps1` wrapper (unrelated to this project) — fix once with
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
 
 ## Architecture
 
