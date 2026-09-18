@@ -66,6 +66,19 @@ app.whenReady().then(() => {
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+
+  // Only in packaged builds: electron-updater errors loudly in dev, where there's no
+  // update feed (that comes from electron-builder's `publish` config + a real
+  // GitHub Release). Squirrel.Mac (electron-updater's macOS mechanism) needs a signed
+  // app to silently install an update, which this app doesn't do yet — until then,
+  // macOS can detect an update but not auto-install it; Windows NSIS updates work
+  // unsigned today.
+  if (app.isPackaged) {
+    const { autoUpdater } = require("electron-updater");
+    autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+      console.error("update check failed", err);
+    });
+  }
 });
 
 app.on("window-all-closed", () => {

@@ -13,6 +13,20 @@ Phase 1 is built, tested, and **deployed and verified live**:
 - What Phase 1 covers: auth (register/login/logout/me), manual citation CRUD, BibTeX/RIS
   file import, DOI import via Crossref, library search/filter/sort/pagination
 
+## Desktop app (`desktop/`)
+
+An Electron shell around the same hosted API — same account, same library, no
+separate backend/database. Loads `frontend/`'s existing HTML/CSS/JS **directly, not
+copied**, through a custom `app://` protocol, so any web-frontend feature works there
+too with no build step. Phase 1 (bare shell) and Phase 2 (packaging, icon,
+auto-update wiring, CI) are both done, each verified by actually launching the app —
+`desktop/README.md` documents two real bugs (a URL-host design flaw, a sandboxed
+preload `require()` limitation) that only surfaced that way, not from reading the
+code. No `desktop-v*` release has been cut yet — that's a deliberate release decision
+left for whoever's driving the project. Phase 3 (tray icon, native notifications,
+global shortcut, deep links) isn't built; `desktop/README.md`'s "Adding a native
+capability later" section explains the extension point.
+
 ## Deliberately out of scope — don't build unless asked
 
 - **Scopus API integration** — was the original spec's plan; deferred indefinitely in
