@@ -24,6 +24,14 @@ CT_DESKTOP_API_BASE=http://127.0.0.1:8000 npm start
 (There's no URL bar to type `frontend/app.js`'s usual `?api=...` override into, so
 this env var is the desktop equivalent — see `src/main.js`.)
 
+That override is written to `localStorage` (`ct_api_base`) and persists across
+relaunches like the rest of `app.js`'s storage (see Architecture below) — so once
+you've run with `CT_DESKTOP_API_BASE` set, later launches *without* it will still use
+that stored URL, not the hosted default. If the app reports it can't reach
+`http://127.0.0.1:8000` (or any other stale URL) even with no local server running,
+use **Backend → Reset API Backend to Hosted Default** from the app's menu bar to clear
+the override.
+
 ## Architecture
 
 - `src/main.js` — app lifecycle, window creation, external-link handling.
