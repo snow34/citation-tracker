@@ -1,0 +1,19 @@
+{
+  "name": "citation-tracker-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Standalone desktop shell for Citation Tracker (Electron, thin client on the hosted API).",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:dir": "electron-builder --dir"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.0"
+  }
+}
