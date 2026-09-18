@@ -37,7 +37,9 @@ class LibraryQueryParams:
     def __init__(
         self,
         q: str | None = Query(default=None, description="Search title/authors/journal/abstract"),
-        journal: str | None = Query(default=None),
+        title: str | None = Query(default=None, description="Search within the title column"),
+        authors: str | None = Query(default=None, description="Search within the authors column"),
+        journal: str | None = Query(default=None, description="Search within the journal column"),
         year: int | None = Query(default=None),
         read_status: str | None = Query(default=None),
         sort: SortField = Query(default=SortField.added_at),
@@ -46,6 +48,8 @@ class LibraryQueryParams:
         page_size: int = Query(default=20, ge=1, le=100),
     ):
         self.q = q
+        self.title = title
+        self.authors = authors
         self.journal = journal
         self.year = year
         self.read_status = read_status
