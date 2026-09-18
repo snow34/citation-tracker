@@ -12,6 +12,50 @@
   const modalRoot = document.getElementById("modal-root");
   const toastEl = document.getElementById("toast");
 
+  // ---------------------------------------------------------------- theme
+
+  function resolveTheme() {
+    const stored = localStorage.getItem("ct_theme");
+    if (stored === "light" || stored === "dark") return stored;
+    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+
+  function applyTheme() {
+    document.documentElement.setAttribute("data-theme", resolveTheme());
+  }
+
+  function toggleTheme() {
+    localStorage.setItem("ct_theme", resolveTheme() === "dark" ? "light" : "dark");
+    applyTheme();
+    updateThemeToggleButtons();
+  }
+
+  function themeToggleHtml(fixed) {
+    const theme = resolveTheme();
+    return `
+      <button type="button" class="btn btn-ghost btn-sm theme-toggle ${fixed ? "theme-toggle-fixed" : ""}"
+        id="theme-toggle-btn" title="Switch to ${theme === "dark" ? "light" : "dark"} mode" aria-label="Toggle theme">
+        ${theme === "dark" ? icon.moon : icon.sun}
+      </button>
+    `;
+  }
+
+  function updateThemeToggleButtons() {
+    const theme = resolveTheme();
+    document.querySelectorAll(".theme-toggle").forEach((btn) => {
+      btn.innerHTML = theme === "dark" ? icon.moon : icon.sun;
+      btn.title = `Switch to ${theme === "dark" ? "light" : "dark"} mode`;
+    });
+  }
+
+  function bindThemeToggle() {
+    document.querySelectorAll(".theme-toggle").forEach((btn) => {
+      btn.addEventListener("click", toggleTheme);
+    });
+  }
+
+  applyTheme();
+
   let currentUser = null;
   let libState = {
     title: "", authors: "", journal: "", year: "", read_status: "",
@@ -77,6 +121,8 @@
     chevronRight: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>',
     close: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>',
     upload: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>',
+    sun: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>',
+    moon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>',
   };
 
   // ----------------------------------------------------------------- API
@@ -205,6 +251,7 @@
             <a href="#/add" class="btn btn-primary btn-sm">+ Add Citation</a>
           </div>
           <div class="topbar-user">
+            ${themeToggleHtml()}
             <span>${escapeHtml(currentUser ? currentUser.email : "")}</span>
             <button class="btn btn-ghost btn-sm" id="logout-btn" type="button">Log out</button>
           </div>
@@ -216,6 +263,7 @@
 
   function mountShell(activeNav, innerHtml) {
     app.innerHTML = shellHtml(activeNav, innerHtml);
+    bindThemeToggle();
     document.getElementById("logout-btn").addEventListener("click", async () => {
       try { await Api.logout(); } catch { /* client-side discard regardless */ }
       setToken(null);
@@ -232,6 +280,7 @@
     const isLogin = mode !== "register";
     app.innerHTML = `
       <div class="auth-wrap">
+        ${themeToggleHtml(true)}
         <div class="auth-card">
           <div class="auth-logo">${icon.book}<span>Citation Tracker</span></div>
           <p class="auth-sub">Your personal reference library.</p>
@@ -266,6 +315,8 @@
       document.getElementById("auth-alert").innerHTML =
         `<div class="alert alert-success">${escapeHtml(opts.notice)}</div>`;
     }
+
+    bindThemeToggle();
 
     app.querySelectorAll("[data-tab]").forEach((btn) => {
       btn.addEventListener("click", () => { location.hash = "#/" + btn.dataset.tab; });
@@ -302,6 +353,7 @@
   function renderForgotPassword() {
     app.innerHTML = `
       <div class="auth-wrap">
+        ${themeToggleHtml(true)}
         <div class="auth-card">
           <div class="auth-logo">${icon.book}<span>Citation Tracker</span></div>
           <p class="auth-sub">We'll email you a link to reset your password.</p>
@@ -319,6 +371,8 @@
         </div>
       </div>
     `;
+
+    bindThemeToggle();
 
     document.getElementById("fp-form").addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -344,6 +398,7 @@
   function renderResetPassword(token) {
     app.innerHTML = `
       <div class="auth-wrap">
+        ${themeToggleHtml(true)}
         <div class="auth-card">
           <div class="auth-logo">${icon.book}<span>Citation Tracker</span></div>
           <p class="auth-sub">Choose a new password.</p>
@@ -366,6 +421,8 @@
         </div>
       </div>
     `;
+
+    bindThemeToggle();
 
     if (!token) {
       document.getElementById("rp-form").hidden = true;

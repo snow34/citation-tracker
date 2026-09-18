@@ -18,8 +18,11 @@
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 8px rgba(0, 0, 0, 0.04);
 }
 
+/* Dark mode applies automatically from the OS preference, but app.js also sets an
+   explicit data-theme attribute (persisted in localStorage) once the user picks one
+   with the topbar/auth-screen toggle, which overrides the OS preference either way. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #17171a;
     --surface: #1f1f23;
     --surface-alt: #26262b;
@@ -35,6 +38,23 @@
     --warn: oklch(0.78 0.13 80);
     --warn-bg: oklch(0.3 0.06 80);
   }
+}
+
+:root[data-theme="dark"] {
+  --bg: #17171a;
+  --surface: #1f1f23;
+  --surface-alt: #26262b;
+  --border: #34343a;
+  --text: #ececea;
+  --text-muted: #9c9ca3;
+  --accent: oklch(0.75 0.15 250);
+  --accent-hover: oklch(0.8 0.15 250);
+  --danger: oklch(0.7 0.16 25);
+  --danger-bg: oklch(0.28 0.06 25);
+  --success: oklch(0.72 0.13 150);
+  --success-bg: oklch(0.26 0.06 150);
+  --warn: oklch(0.78 0.13 80);
+  --warn-bg: oklch(0.3 0.06 80);
 }
 
 * { box-sizing: border-box; }
@@ -177,6 +197,15 @@ textarea { font-family: inherit; resize: vertical; }
   align-items: center;
   justify-content: center;
   padding: 24px;
+  position: relative;
+}
+
+.theme-toggle svg { display: block; }
+
+.theme-toggle-fixed {
+  position: fixed;
+  top: 16px;
+  right: 16px;
 }
 
 .auth-card {
