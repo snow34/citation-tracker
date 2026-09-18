@@ -41,6 +41,10 @@ open against `main`.
   attribute can override the OS `prefers-color-scheme: dark` media query.
 - Files: `frontend/app.js`, `frontend/styles.css`.
 
+**This file**
+- Added `handoff.md` itself and set up a standing habit of updating it after
+  every step for continuity across sessions.
+
 ## Verification done
 
 - Backend: `pytest` — 47 passed (ran via a throwaway venv at `/tmp/ctenv`
@@ -59,7 +63,8 @@ open against `main`.
 
 ## PR #12 status
 
-- CI green: `test` and `smoke-build` checks both passing.
+- CI green on latest commit (`f36ccd3`): `test` and `smoke-build` checks both
+  passing. 3 commits on the branch so far.
 - No merge conflicts (`mergeable_state: clean`).
 - No review comments or threads yet.
 - Subscribed via `subscribe_pr_activity` — this session gets woken on new
