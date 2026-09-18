@@ -45,6 +45,8 @@ async def list_citations(
         db,
         current_user.id,
         q=params.q,
+        title=params.title,
+        authors=params.authors,
         journal=params.journal,
         year=params.year,
         read_status=params.read_status,

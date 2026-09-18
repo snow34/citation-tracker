@@ -14,13 +14,24 @@
 
   let currentUser = null;
   let libState = {
-    q: "", journal: "", year: "", read_status: "",
-    sort: "added_at", order: "desc", page: 1, page_size: 20,
+    title: "", authors: "", journal: "", year: "", read_status: "",
+    sort: "added_at", order: "desc", group: null, page: 1, page_size: 20,
   };
   let importTab = "bibtex";
   let importResult = null;
   let importError = null;
   let selectedIds = new Set(); // survives pagination/filtering so a bibliography can span pages
+  let collapsedGroups = new Set(); // survives re-renders, keyed by "<field>:<value>"
+
+  // Columns a user can click to sort, and whether higher/lower (numeric) or
+  // alphabetical (string) ordering applies. Also which of those can be grouped.
+  const SORT_FIELDS = {
+    title: { numeric: false },
+    authors: { numeric: false },
+    journal: { numeric: false, groupable: true },
+    year: { numeric: true, groupable: true },
+    read_status: { numeric: false, groupable: true },
+  };
 
   // ---------------------------------------------------------------- utils
 
@@ -399,7 +410,8 @@
 
   function libraryQueryString() {
     const qs = new URLSearchParams();
-    if (libState.q) qs.set("q", libState.q);
+    if (libState.title) qs.set("title", libState.title);
+    if (libState.authors) qs.set("authors", libState.authors);
     if (libState.journal) qs.set("journal", libState.journal);
     if (libState.year) qs.set("year", libState.year);
     if (libState.read_status) qs.set("read_status", libState.read_status);
@@ -450,42 +462,128 @@
     `;
   }
 
-  function libraryContentHtml(data, styles) {
-    const hasFilters = libState.q || libState.journal || libState.year || libState.read_status;
+  function sortIndicatorHtml(field) {
+    if (libState.sort !== field) return '<span class="sort-indicator"></span>';
+    return `<span class="sort-indicator active">${libState.order === "asc" ? "▲" : "▼"}</span>`;
+  }
 
-    const toolbar = `
-      <div class="toolbar">
-        <input type="search" id="f-q" placeholder="Search title, authors, journal, abstract…" value="${escapeHtml(libState.q)}">
-        <div class="toolbar-group">
-          <input type="text" id="f-journal" placeholder="Journal" style="width:130px" value="${escapeHtml(libState.journal)}">
-          <input type="number" id="f-year" placeholder="Year" style="width:90px" value="${escapeHtml(libState.year)}">
-          <select id="f-status">
-            <option value="">All statuses</option>
+  function columnHeaderHtml(field, label) {
+    const meta = SORT_FIELDS[field];
+    const groupBtn = meta.groupable
+      ? `<button type="button" class="col-group-btn ${libState.group === field ? "active" : ""}"
+           data-group="${field}" title="Group by ${escapeHtml(label)}">⊞</button>`
+      : "";
+    return `
+      <th class="sortable" data-sort="${field}">
+        <span class="th-label">${escapeHtml(label)} ${sortIndicatorHtml(field)}</span>
+        ${groupBtn}
+      </th>
+    `;
+  }
+
+  function theadHtml() {
+    return `
+      <tr>
+        <th class="cell-select"><input type="checkbox" id="select-all-visible"></th>
+        ${columnHeaderHtml("title", "Title")}
+        ${columnHeaderHtml("authors", "Authors")}
+        ${columnHeaderHtml("journal", "Journal")}
+        ${columnHeaderHtml("year", "Year")}
+        ${columnHeaderHtml("read_status", "Status")}
+      </tr>
+      <tr class="filter-row">
+        <th></th>
+        <th><input type="search" id="col-f-title" placeholder="Search title…" value="${escapeHtml(libState.title)}"></th>
+        <th><input type="search" id="col-f-authors" placeholder="Search authors…" value="${escapeHtml(libState.authors)}"></th>
+        <th><input type="search" id="col-f-journal" placeholder="Search journal…" value="${escapeHtml(libState.journal)}"></th>
+        <th><input type="number" id="col-f-year" placeholder="Year" value="${escapeHtml(libState.year)}"></th>
+        <th>
+          <select id="col-f-status">
+            <option value="">All</option>
             <option value="unread" ${libState.read_status === "unread" ? "selected" : ""}>Unread</option>
             <option value="reading" ${libState.read_status === "reading" ? "selected" : ""}>Reading</option>
             <option value="read" ${libState.read_status === "read" ? "selected" : ""}>Read</option>
           </select>
-        </div>
-        <div class="toolbar-group">
-          <select id="f-sort">
-            <option value="added_at" ${libState.sort === "added_at" ? "selected" : ""}>Date added</option>
-            <option value="title" ${libState.sort === "title" ? "selected" : ""}>Title</option>
-            <option value="year" ${libState.sort === "year" ? "selected" : ""}>Year</option>
-            <option value="citation_count" ${libState.sort === "citation_count" ? "selected" : ""}>Citation count</option>
-          </select>
-          <button type="button" class="btn btn-sm" id="f-order" title="Toggle sort order">
-            ${libState.order === "asc" ? "↑ Asc" : "↓ Desc"}
-          </button>
-        </div>
-      </div>
+        </th>
+      </tr>
     `;
+  }
+
+  function rowHtml(item) {
+    const c = item.citation;
+    const authors = (c.authors || []).join(", ") || "—";
+    const checked = selectedIds.has(item.id) ? "checked" : "";
+    return `
+      <tr data-id="${escapeHtml(item.id)}">
+        <td class="cell-select"><input type="checkbox" class="row-select" data-id="${escapeHtml(item.id)}" ${checked}></td>
+        <td class="cell-title">
+          ${escapeHtml(c.title)}${item.notes ? '<span class="note-dot" title="Has notes"></span>' : ""}
+          ${c.doi ? `<div class="row-doi">${escapeHtml(c.doi)}</div>` : ""}
+        </td>
+        <td class="cell-muted">${escapeHtml(authors)}</td>
+        <td class="cell-muted">${escapeHtml(c.journal || "—")}</td>
+        <td class="cell-muted">${c.year ?? "—"}</td>
+        <td>${statusBadge(item.read_status)}</td>
+      </tr>
+    `;
+  }
+
+  function groupLabelFor(field, item) {
+    if (field === "journal") return item.citation.journal || "—";
+    if (field === "year") return item.citation.year != null ? String(item.citation.year) : "—";
+    if (field === "read_status") {
+      return { unread: "Unread", reading: "Reading", read: "Read" }[item.read_status] || item.read_status;
+    }
+    return "—";
+  }
+
+  function tbodyHtml(items) {
+    if (items.length === 0) return "";
+    if (!libState.group) return items.map(rowHtml).join("");
+
+    const field = libState.group;
+    // Items already arrive sorted by this field (grouping forces sort=field),
+    // so a single pass over the current page groups contiguous runs correctly.
+    const groups = [];
+    for (const item of items) {
+      const label = groupLabelFor(field, item);
+      const current = groups[groups.length - 1];
+      if (!current || current.label !== label) groups.push({ label, items: [item] });
+      else current.items.push(item);
+    }
+
+    return groups.map((g) => {
+      const key = field + ":" + g.label;
+      const collapsed = collapsedGroups.has(key);
+      const header = `
+        <tr class="group-row">
+          <td colspan="6">
+            <button type="button" class="group-toggle-btn" data-group-key="${escapeHtml(key)}">
+              <span class="group-chevron">${collapsed ? "▶" : "▼"}</span>
+              ${escapeHtml(g.label)} <span class="cell-muted">(${g.items.length})</span>
+            </button>
+          </td>
+        </tr>
+      `;
+      return header + (collapsed ? "" : g.items.map(rowHtml).join(""));
+    }).join("");
+  }
+
+  function libraryContentHtml(data, styles) {
+    const hasFilters = libState.title || libState.authors || libState.journal || libState.year || libState.read_status;
 
     if (data.items.length === 0) {
-      return toolbar + `
+      return `
+        ${selectionBarHtml(styles)}
+        <div class="lib-table-wrap">
+          <table class="lib-table">
+            <thead>${theadHtml()}</thead>
+          </table>
+        </div>
         <div class="empty-state">
           <h2>${hasFilters ? "No citations match your filters" : "Your library is empty"}</h2>
           <p>${hasFilters
-            ? "Try clearing search or filters."
+            ? "Try clearing the column search boxes above."
             : "Import references from BibTeX, RIS, or a DOI, or add one by hand."}</p>
           <div class="empty-actions">
             <a href="#/import" class="btn btn-primary">Import citations</a>
@@ -495,40 +593,14 @@
       `;
     }
 
-    const rows = data.items.map((item) => {
-      const c = item.citation;
-      const authors = (c.authors || []).join(", ") || "—";
-      const checked = selectedIds.has(item.id) ? "checked" : "";
-      return `
-        <tr data-id="${escapeHtml(item.id)}">
-          <td class="cell-select"><input type="checkbox" class="row-select" data-id="${escapeHtml(item.id)}" ${checked}></td>
-          <td class="cell-title">
-            ${escapeHtml(c.title)}${item.notes ? '<span class="note-dot" title="Has notes"></span>' : ""}
-            ${c.doi ? `<div class="row-doi">${escapeHtml(c.doi)}</div>` : ""}
-          </td>
-          <td class="cell-muted">${escapeHtml(authors)}</td>
-          <td class="cell-muted">${escapeHtml(c.journal || "—")}</td>
-          <td class="cell-muted">${c.year ?? "—"}</td>
-          <td>${statusBadge(item.read_status)}</td>
-        </tr>
-      `;
-    }).join("");
-
     const totalPages = Math.max(1, Math.ceil(data.total / data.page_size));
-    const allVisibleSelected = data.items.every((item) => selectedIds.has(item.id));
 
     return `
-      ${toolbar}
       ${selectionBarHtml(styles)}
       <div class="lib-table-wrap">
         <table class="lib-table">
-          <thead>
-            <tr>
-              <th><input type="checkbox" id="select-all-visible" ${allVisibleSelected ? "checked" : ""}></th>
-              <th>Title</th><th>Authors</th><th>Journal</th><th>Year</th><th>Status</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
+          <thead>${theadHtml()}</thead>
+          <tbody>${tbodyHtml(data.items)}</tbody>
         </table>
       </div>
       <div class="pagination">
@@ -550,23 +622,67 @@
   function bindLibraryEvents(data) {
     const refresh = () => { libState.page = 1; renderLibrary(); };
 
-    document.getElementById("f-q").addEventListener("input", debounce((e) => {
-      libState.q = e.target.value; refresh();
-    }, 350));
-    document.getElementById("f-journal").addEventListener("input", debounce((e) => {
+    const titleInput = document.getElementById("col-f-title");
+    if (titleInput) titleInput.addEventListener("input", debounce((e) => {
+      libState.title = e.target.value; refresh();
+    }, 300));
+    const authorsInput = document.getElementById("col-f-authors");
+    if (authorsInput) authorsInput.addEventListener("input", debounce((e) => {
+      libState.authors = e.target.value; refresh();
+    }, 300));
+    const journalInput = document.getElementById("col-f-journal");
+    if (journalInput) journalInput.addEventListener("input", debounce((e) => {
       libState.journal = e.target.value; refresh();
-    }, 350));
-    document.getElementById("f-year").addEventListener("input", debounce((e) => {
+    }, 300));
+    const yearInput = document.getElementById("col-f-year");
+    if (yearInput) yearInput.addEventListener("input", debounce((e) => {
       libState.year = e.target.value; refresh();
-    }, 350));
-    document.getElementById("f-status").addEventListener("change", (e) => {
+    }, 300));
+    const statusSelect = document.getElementById("col-f-status");
+    if (statusSelect) statusSelect.addEventListener("change", (e) => {
       libState.read_status = e.target.value; refresh();
     });
-    document.getElementById("f-sort").addEventListener("change", (e) => {
-      libState.sort = e.target.value; renderLibrary();
+
+    app.querySelectorAll("th.sortable").forEach((th) => {
+      th.addEventListener("click", (e) => {
+        if (e.target.closest(".col-group-btn")) return;
+        const field = th.dataset.sort;
+        if (libState.sort === field) {
+          libState.order = libState.order === "asc" ? "desc" : "asc";
+        } else {
+          libState.sort = field;
+          libState.order = SORT_FIELDS[field].numeric ? "desc" : "asc";
+          // Grouping only makes sense while rows are actually sorted by the
+          // grouped column, since it relies on same-value rows being contiguous.
+          if (libState.group && libState.group !== field) libState.group = null;
+        }
+        libState.page = 1;
+        renderLibrary();
+      });
     });
-    document.getElementById("f-order").addEventListener("click", () => {
-      libState.order = libState.order === "asc" ? "desc" : "asc"; renderLibrary();
+
+    app.querySelectorAll(".col-group-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const field = btn.dataset.group;
+        if (libState.group === field) {
+          libState.group = null;
+        } else {
+          libState.group = field;
+          libState.sort = field;
+          libState.order = "asc";
+        }
+        libState.page = 1;
+        renderLibrary();
+      });
+    });
+
+    app.querySelectorAll(".group-toggle-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const key = btn.dataset.groupKey;
+        if (collapsedGroups.has(key)) collapsedGroups.delete(key); else collapsedGroups.add(key);
+        renderLibrary();
+      });
     });
 
     const pageSizeSel = document.getElementById("f-page-size");
@@ -601,12 +717,15 @@
     });
 
     const selectAll = document.getElementById("select-all-visible");
-    if (selectAll) selectAll.addEventListener("change", (e) => {
-      data.items.forEach((item) => {
-        if (e.target.checked) selectedIds.add(item.id); else selectedIds.delete(item.id);
+    if (selectAll) {
+      selectAll.checked = data.items.length > 0 && data.items.every((item) => selectedIds.has(item.id));
+      selectAll.addEventListener("change", (e) => {
+        data.items.forEach((item) => {
+          if (e.target.checked) selectedIds.add(item.id); else selectedIds.delete(item.id);
+        });
+        renderLibrary();
       });
-      renderLibrary();
-    });
+    }
 
     const clearSelBtn = document.getElementById("clear-sel-btn");
     if (clearSelBtn) clearSelBtn.addEventListener("click", () => {
