@@ -1,0 +1,38 @@
+appId: com.citationtracker.desktop
+productName: Citation Tracker
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - "src/**/*"
+  - "package.json"
+
+# frontend/ lives outside this projectDir (desktop/) as a sibling directory — it's
+# never copied at dev time (main.js reads it directly, see src/main.js), and
+# extraResources (not a `files` glob reaching outside projectDir, which gets fragile
+# with asar-relative paths) is the documented way to pull it into the packaged app.
+extraResources:
+  - from: "../frontend"
+    to: "frontend"
+    filter:
+      - "**/*"
+
+mac:
+  target: [dmg, zip]
+  category: public.app.category.productivity
+  icon: build/icon.png
+
+win:
+  target: [nsis]
+  icon: build/icon.png
+
+linux:
+  target: [AppImage, deb]
+  icon: build/icon.png
+  category: Office
+
+publish:
+  provider: github
+  owner: snow34
+  repo: citation-tracker

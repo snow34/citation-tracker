@@ -105,9 +105,10 @@ either browser and how it works.
 `desktop/` is a standalone Electron shell around the same API — same account, same
 library, no separate backend. It loads `frontend/`'s existing HTML/CSS/JS directly
 (not copied), so any web-frontend feature works in the desktop app too. See
-`desktop/README.md` for how to run it and its architecture. Currently a bare shell
-(no packaging/installer yet); see the project's desktop-app plan for the staged
-rollout toward a distributable, auto-updating app.
+`desktop/README.md` for how to run it, build an installer, and its architecture.
+Packaging, an app icon, auto-update wiring, and CI are done; no release has been
+published yet, and native capabilities (tray icon, notifications, deep links) are a
+future phase.
 
 ## API overview
 
