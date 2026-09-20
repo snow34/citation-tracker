@@ -11,9 +11,12 @@ from app.schemas.citation import CitationUpdate, SortField, SortOrder
 
 _SORT_COLUMNS = {
     SortField.title: Citation.title,
+    SortField.authors: cast(Citation.authors, String),
+    SortField.journal: Citation.journal,
     SortField.year: Citation.year,
     SortField.citation_count: Citation.citation_count,
     SortField.added_at: UserCitation.added_at,
+    SortField.read_status: UserCitation.read_status,
 }
 
 
@@ -117,6 +120,8 @@ async def list_library(
     user_id: uuid.UUID,
     *,
     q: str | None,
+    title: str | None = None,
+    authors: str | None = None,
     journal: str | None,
     year: int | None,
     read_status: str | None,
@@ -137,8 +142,12 @@ async def list_library(
                 cast(Citation.authors, String).ilike(pattern),
             )
         )
+    if title:
+        stmt = stmt.where(Citation.title.ilike(f"%{title}%"))
+    if authors:
+        stmt = stmt.where(cast(Citation.authors, String).ilike(f"%{authors}%"))
     if journal:
-        stmt = stmt.where(Citation.journal.ilike(journal))
+        stmt = stmt.where(Citation.journal.ilike(f"%{journal}%"))
     if year is not None:
         stmt = stmt.where(Citation.year == year)
     if read_status:

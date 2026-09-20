@@ -13,9 +13,12 @@ class ReadStatus(str, Enum):
 
 class SortField(str, Enum):
     title = "title"
+    authors = "authors"
+    journal = "journal"
     year = "year"
     added_at = "added_at"
     citation_count = "citation_count"
+    read_status = "read_status"
 
 
 class SortOrder(str, Enum):

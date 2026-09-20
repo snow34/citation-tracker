@@ -18,8 +18,11 @@
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 8px rgba(0, 0, 0, 0.04);
 }
 
+/* Dark mode applies automatically from the OS preference, but app.js also sets an
+   explicit data-theme attribute (persisted in localStorage) once the user picks one
+   with the topbar/auth-screen toggle, which overrides the OS preference either way. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #17171a;
     --surface: #1f1f23;
     --surface-alt: #26262b;
@@ -35,6 +38,23 @@
     --warn: oklch(0.78 0.13 80);
     --warn-bg: oklch(0.3 0.06 80);
   }
+}
+
+:root[data-theme="dark"] {
+  --bg: #17171a;
+  --surface: #1f1f23;
+  --surface-alt: #26262b;
+  --border: #34343a;
+  --text: #ececea;
+  --text-muted: #9c9ca3;
+  --accent: oklch(0.75 0.15 250);
+  --accent-hover: oklch(0.8 0.15 250);
+  --danger: oklch(0.7 0.16 25);
+  --danger-bg: oklch(0.28 0.06 25);
+  --success: oklch(0.72 0.13 150);
+  --success-bg: oklch(0.26 0.06 150);
+  --warn: oklch(0.78 0.13 80);
+  --warn-bg: oklch(0.3 0.06 80);
 }
 
 * { box-sizing: border-box; }
@@ -177,6 +197,15 @@ textarea { font-family: inherit; resize: vertical; }
   align-items: center;
   justify-content: center;
   padding: 24px;
+  position: relative;
+}
+
+.theme-toggle svg { display: block; }
+
+.theme-toggle-fixed {
+  position: fixed;
+  top: 16px;
+  right: 16px;
 }
 
 .auth-card {
@@ -353,9 +382,76 @@ table.lib-table {
   white-space: nowrap;
 }
 
+.lib-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+.lib-table th.sortable:hover { color: var(--text); }
+
+.lib-table th .th-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sort-indicator {
+  display: inline-block;
+  width: 10px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.sort-indicator.active { color: var(--accent); }
+
+.col-group-btn {
+  margin-left: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  border-radius: 4px;
+  font-size: 11px;
+  line-height: 1;
+  padding: 2px 4px;
+  cursor: pointer;
+}
+.col-group-btn:hover { color: var(--text); }
+.col-group-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.filter-row th {
+  background: var(--surface);
+  text-transform: none;
+  padding: 6px 10px;
+}
+.filter-row input, .filter-row select {
+  width: 100%;
+  min-height: 30px;
+  padding: 4px 8px;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
 .lib-table tbody tr { cursor: pointer; }
 .lib-table tbody tr:hover { background: var(--surface-alt); }
 .lib-table tbody tr:last-child td { border-bottom: none; }
+
+.group-row { cursor: default; }
+.group-row:hover { background: transparent; }
+.group-row td {
+  background: var(--surface-alt);
+  padding: 6px 14px;
+}
+.group-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  padding: 2px 0;
+}
+.group-chevron { font-size: 10px; color: var(--text-muted); width: 10px; display: inline-block; }
 
 .cell-select { width: 1%; padding-right: 0; }
 .cell-title { font-weight: 600; max-width: 380px; }
