@@ -4,14 +4,17 @@ Running log of work done in this session, kept up to date after every step.
 Stale/resolved information is removed rather than left to accumulate — this
 reflects the *current* state, not a full history.
 
-## Active branch
+## Status: done, merged
 
-`claude/admiring-archimedes-swa2ts` — pushed to origin, tracked by
 [PR #12](https://github.com/snow34/citation-tracker/pull/12)
-("Sortable/searchable/groupable library columns + light/dark theme toggle"),
-open against `main`.
+("Sortable/searchable/groupable library columns + light/dark theme toggle")
+merged into `main` at `a0d1d57`. The feature branch
+`claude/admiring-archimedes-swa2ts` is fully merged and can be deleted
+whenever convenient. Sat open ~45 hours with CI green and no review activity;
+merged directly at the repo owner's explicit request rather than waiting
+further.
 
-## What's done
+## What shipped
 
 **Library table: sorting, per-column search, grouping**
 - Every column header (Title, Authors, Journal, Year, Status) is clickable to
@@ -41,10 +44,6 @@ open against `main`.
   attribute can override the OS `prefers-color-scheme: dark` media query.
 - Files: `frontend/app.js`, `frontend/styles.css`.
 
-**This file**
-- Added `handoff.md` itself and set up a standing habit of updating it after
-  every step for continuity across sessions.
-
 ## Verification done
 
 - Backend: `pytest` — 47 passed (ran via a throwaway venv at `/tmp/ctenv`
@@ -61,24 +60,9 @@ open against `main`.
   `https://citation-tracker-j9do.onrender.com`; use `?api=http://localhost:8000`
   once to point a local frontend at a local backend).
 
-## PR #12 status
-
-- CI green on latest commit (`f36ccd3`): `test` and `smoke-build` checks both
-  passing. 3 commits on the branch so far.
-- No merge conflicts (`mergeable_state: clean`).
-- No review comments or threads yet.
-- Subscribed via `subscribe_pr_activity` — this session gets woken on new
-  CI results, reviews, and comments.
-- No `.claude/skills/steward` or `.claude/skills/babysit` files exist in this
-  repo, so no repo-specific PR-driving conventions override the default
-  drive-to-green rules.
-- A ~60-minute fallback check-in is scheduled (`send_later`) in case a
-  webhook event is missed; re-armed on each check-in until the PR is merged
-  or closed.
-
 ## Next steps / open items
 
-- Waiting on human review/merge of PR #12 — nothing currently blocking on
-  the agent side.
-- If new commits are needed (review feedback, CI failure), push to the same
-  branch (`claude/admiring-archimedes-swa2ts`) rather than opening a new PR.
+- None outstanding from this session. PR subscription and the recurring
+  check-in Routine have both been torn down now that it's merged.
+- If Render auto-deploys from `main`, the live site should pick this up on
+  its own; otherwise a manual deploy trigger may be needed there.
