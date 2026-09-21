@@ -4,65 +4,51 @@ Running log of work done in this session, kept up to date after every step.
 Stale/resolved information is removed rather than left to accumulate — this
 reflects the *current* state, not a full history.
 
-## Status: done, merged
+## Previously shipped (merged to `main`)
 
-[PR #12](https://github.com/snow34/citation-tracker/pull/12)
-("Sortable/searchable/groupable library columns + light/dark theme toggle")
-merged into `main` at `a0d1d57`. The feature branch
-`claude/admiring-archimedes-swa2ts` is fully merged and can be deleted
-whenever convenient. Sat open ~45 hours with CI green and no review activity;
-merged directly at the repo owner's explicit request rather than waiting
-further.
+[PR #12](https://github.com/snow34/citation-tracker/pull/12) — sortable/
+searchable/groupable library table columns, plus a light/dark theme toggle.
+Merged at `a0d1d57`.
 
-## What shipped
+## In progress: Zotero library import
 
-**Library table: sorting, per-column search, grouping**
-- Every column header (Title, Authors, Journal, Year, Status) is clickable to
-  sort. Numeric columns (Year) default highest-first; text columns sort
-  alphabetically. Clicking again reverses order; an arrow indicator shows the
-  active sort/direction.
-- Per-column instant (debounced) search boxes sit under each header, replacing
-  the old single toolbar search box. Journal/Year/Status filters moved here
-  from the toolbar too.
-- Journal, Year, and Status headers have a group toggle ("⊞"): turns on
-  sort-by-that-column and renders collapsible group header rows (e.g.
-  "Nature (3)").
-- Backend: `journal`, `authors`, `read_status` added as sortable fields;
-  `title`/`authors` added as substring-search query params; journal filtering
-  changed from exact-match to substring so it works as instant search.
-- Files: `app/schemas/citation.py`, `app/dependencies.py`,
-  `app/routers/citations.py`, `app/services/citation_service.py`,
-  `frontend/app.js`, `frontend/styles.css`, `tests/test_library_search.py`
-  (5 new tests).
+Branch `claude/admiring-archimedes-swa2ts`, restarted from latest `main`
+(PR #12's branch was already merged, so per the branch-reuse convention this
+picks up the same name fresh rather than stacking on merged history).
 
-**Light/dark theme toggle**
-- Sun/moon button lets the user explicitly override the OS light/dark
-  preference, persisted in `localStorage` (`ct_theme` key).
-- Present in the topbar on logged-in pages (library/import/detail) and as a
-  fixed corner button on login/register/forgot-password/reset-password.
-- CSS dark-mode variables are now guarded so an explicit `data-theme="light"`
-  attribute can override the OS `prefers-color-scheme: dark` media query.
-- Files: `frontend/app.js`, `frontend/styles.css`.
+**What's done, not yet pushed as a PR:**
+- New `parse_csljson` in `app/services/import_service.py` parses CSL-JSON —
+  what Zotero's "Export Library... > CSL JSON" produces (a JSON array of
+  items, or `{"items": [...]}`). Maps `author[].given/family` → author name
+  strings, `issued.date-parts` → year, `container-title` → journal, `DOI`,
+  `abstract`, `title`. Malformed JSON raises `AppError` (400), matching the
+  existing error-handling convention.
+- New endpoint `POST /citations/import/csljson`, reusing the existing
+  `import_parsed_entries` pipeline (DOI-based dedup, per-item error
+  collection) — same as the BibTeX/RIS importers.
+- Frontend: added a "Zotero" tab next to BibTeX/RIS on the Import page and
+  in the Add-citation modal's upload tab. Introduced a `FILE_IMPORT_KINDS`
+  registry (`frontend/app.js`) mapping kind → {label, ext, accept} so the
+  three file-based import UIs share one source of truth instead of
+  duplicating per-format ternaries.
+- Tests: `tests/test_import_csljson.py` — basic import, dedup-on-reimport,
+  the `{"items": [...]}` wrapper shape, and invalid-JSON → 400.
 
-## Verification done
-
-- Backend: `pytest` — 47 passed (ran via a throwaway venv at `/tmp/ctenv`
-  since the sandbox's system Python couldn't build `bibtexparser`; local
-  Postgres cluster started with `pg_ctlcluster 16 main start` and both
-  `citation_tracker` / `citation_tracker_test` DBs created + migrated for
-  this to work).
-- Frontend: exercised end-to-end in a real headless Chromium (Playwright,
-  binary at `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`) against a
-  local `uvicorn` + `python -m http.server` pair — verified sorting both
-  directions per column, instant per-column search, grouping/collapsing by
-  Journal, and theme toggling/persistence across reload and navigation.
-- No manual check against the live Render deployment (frontend defaults to
-  `https://citation-tracker-j9do.onrender.com`; use `?api=http://localhost:8000`
-  once to point a local frontend at a local backend).
+**Verification done:**
+- Backend: `pytest` — 51 passed (same throwaway venv at `/tmp/ctenv`; local
+  Postgres via `pg_ctlcluster 16 main start`, already-existing
+  `citation_tracker`/`citation_tracker_test` DBs).
+- Frontend: exercised end-to-end in headless Chromium (Playwright) —
+  uploaded a 2-item CSL-JSON sample through the Import page's Zotero tab,
+  confirmed "2 imported / 0 skipped / 0 errors" and both titles/authors
+  showing correctly in the library; confirmed the Add-citation modal's
+  upload tab also offers and correctly configures the Zotero option.
+- Not yet checked against a real Zotero export file (only a hand-written
+  CSL-JSON sample) — worth a spot check if a real export is available.
 
 ## Next steps / open items
 
-- None outstanding from this session. PR subscription and the recurring
-  check-in Routine have both been torn down now that it's merged.
-- If Render auto-deploys from `main`, the live site should pick this up on
-  its own; otherwise a manual deploy trigger may be needed there.
+- Branch is committed and pushed to origin. No PR opened yet — the user
+  hasn't asked for one; open on request per standing PR-creation policy.
+- Consider whether to also validate against an actual Zotero-exported file
+  before calling this fully done.
