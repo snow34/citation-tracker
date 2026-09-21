@@ -56,6 +56,13 @@
 
   applyTheme();
 
+  // File-based import kinds, keyed by the API path segment (/citations/import/<kind>).
+  const FILE_IMPORT_KINDS = {
+    bibtex: { label: "BibTeX", ext: ".bib", accept: ".bib,.bibtex" },
+    ris: { label: "RIS", ext: ".ris", accept: ".ris" },
+    csljson: { label: "Zotero", ext: ".json", accept: ".json" },
+  };
+
   let currentUser = null;
   let libState = {
     title: "", authors: "", journal: "", year: "", read_status: "",
@@ -1166,7 +1173,7 @@
       });
     }
 
-    // ---- Upload tab: a single BibTeX/RIS file, quick import ----
+    // ---- Upload tab: a single BibTeX/RIS/Zotero export file, quick import ----
     function uploadTabHtml() {
       if (uploadResult) {
         return `
@@ -1176,21 +1183,20 @@
           </div>
         `;
       }
-      const label = uploadKind === "bibtex" ? ".bib" : ".ris";
-      const accept = uploadKind === "bibtex" ? ".bib,.bibtex" : ".ris";
+      const kind = FILE_IMPORT_KINDS[uploadKind];
+      const kindButtons = Object.entries(FILE_IMPORT_KINDS).map(([key, k]) =>
+        `<button type="button" class="btn btn-sm ${uploadKind === key ? "btn-primary" : ""}" data-am-kind="${key}">${k.label}</button>`
+      ).join("");
       return `
         <div id="am-upload-alert"></div>
-        <div class="toolbar-group" style="margin-bottom:12px">
-          <button type="button" class="btn btn-sm ${uploadKind === "bibtex" ? "btn-primary" : ""}" id="am-kind-bibtex">BibTeX</button>
-          <button type="button" class="btn btn-sm ${uploadKind === "ris" ? "btn-primary" : ""}" id="am-kind-ris">RIS</button>
-        </div>
+        <div class="toolbar-group" style="margin-bottom:12px">${kindButtons}</div>
         <form id="am-file-form">
           <label class="dropzone" id="am-dropzone" for="am-file-input">
             ${icon.upload}
-            <div style="margin-top:10px;font-weight:600">Drop a ${label} file here, or click to browse</div>
+            <div style="margin-top:10px;font-weight:600">Drop a ${kind.ext} file here, or click to browse</div>
             <div class="field-hint" style="margin-top:4px">Existing citations (matched by DOI) are skipped, not duplicated.</div>
           </label>
-          <input id="am-file-input" type="file" accept="${accept}" style="display:none">
+          <input id="am-file-input" type="file" accept="${kind.accept}" style="display:none">
           <div class="form-actions">
             <button type="submit" class="btn btn-primary" id="am-file-submit" disabled style="flex:1">Upload &amp; add</button>
             <span id="am-file-name" class="field-hint"></span>
@@ -1205,11 +1211,10 @@
         return;
       }
 
-      document.getElementById("am-kind-bibtex").addEventListener("click", () => {
-        if (uploadKind !== "bibtex") { uploadKind = "bibtex"; renderTabBody(); }
-      });
-      document.getElementById("am-kind-ris").addEventListener("click", () => {
-        if (uploadKind !== "ris") { uploadKind = "ris"; renderTabBody(); }
+      document.querySelectorAll("[data-am-kind]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          if (uploadKind !== btn.dataset.amKind) { uploadKind = btn.dataset.amKind; renderTabBody(); }
+        });
       });
 
       const dropzone = document.getElementById("am-dropzone");
@@ -1383,6 +1388,7 @@
       <div class="tabs">
         <button type="button" data-tab="bibtex" class="${importTab === "bibtex" ? "active" : ""}">BibTeX file</button>
         <button type="button" data-tab="ris" class="${importTab === "ris" ? "active" : ""}">RIS file</button>
+        <button type="button" data-tab="csljson" class="${importTab === "csljson" ? "active" : ""}">Zotero</button>
         <button type="button" data-tab="doi" class="${importTab === "doi" ? "active" : ""}">DOI lookup</button>
       </div>
       <div id="import-alert"></div>
@@ -1406,16 +1412,18 @@
         </form>
       `;
     }
-    const label = importTab === "bibtex" ? ".bib" : ".ris";
-    const accept = importTab === "bibtex" ? ".bib,.bibtex" : ".ris";
+    const kind = FILE_IMPORT_KINDS[importTab];
+    const hint = importTab === "csljson"
+      ? "In Zotero: right-click your library or a collection → Export Library… → format CSL JSON. Existing citations (matched by DOI) are skipped, not duplicated."
+      : "Existing citations (matched by DOI) are skipped, not duplicated.";
     return `
       <form id="file-form">
         <label class="dropzone" id="dropzone" for="file-input">
           ${icon.upload}
-          <div style="margin-top:10px;font-weight:600">Drop a ${label} file here, or click to browse</div>
-          <div class="field-hint" style="margin-top:4px">Existing citations (matched by DOI) are skipped, not duplicated.</div>
+          <div style="margin-top:10px;font-weight:600">Drop a ${kind.ext} file here, or click to browse</div>
+          <div class="field-hint" style="margin-top:4px">${hint}</div>
         </label>
-        <input id="file-input" type="file" accept="${accept}" style="display:none">
+        <input id="file-input" type="file" accept="${kind.accept}" style="display:none">
         <div class="form-actions">
           <button type="submit" class="btn btn-primary" id="file-submit" disabled>Upload &amp; import</button>
           <span id="file-name" class="field-hint"></span>

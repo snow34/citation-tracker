@@ -154,6 +154,17 @@ async def import_ris(
     return await import_service.import_parsed_entries(db, current_user.id, entries)
 
 
+@router.post("/import/csljson", response_model=ImportResultOut)
+async def import_csljson(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ImportResultOut:
+    content = (await file.read()).decode("utf-8")
+    entries = import_service.parse_csljson(content)
+    return await import_service.import_parsed_entries(db, current_user.id, entries)
+
+
 @router.post("/import/doi", response_model=CitationOut, status_code=status.HTTP_201_CREATED)
 async def import_doi(
     data: DoiImportRequest,

@@ -1,9 +1,11 @@
+import json
 from typing import Any
 
 import bibtexparser
 import rispy
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import AppError
 from app.schemas.citation import CitationOut, ImportResultItem, ImportResultOut
 from app.services.citation_service import add_to_library, get_or_create_citation
 
@@ -58,6 +60,52 @@ def parse_ris(content: str) -> list[dict[str, Any]]:
                 "journal": journal,
                 "year": _to_year(record.get("year") or record.get("publication_year")),
                 "abstract": record.get("abstract") or None,
+                "citation_count": None,
+            }
+        )
+    return entries
+
+
+def _csl_author_name(author: dict[str, Any]) -> str | None:
+    literal = author.get("literal")
+    if literal:
+        return literal.strip() or None
+    name = " ".join(part for part in (author.get("given"), author.get("family")) if part)
+    return name.strip() or None
+
+
+def parse_csljson(content: str) -> list[dict[str, Any]]:
+    """CSL-JSON is what Zotero's "Export Library > CSL JSON" produces — one JSON
+    array of items (some tools wrap that array in {"items": [...]})."""
+    try:
+        data = json.loads(content)
+    except ValueError as exc:
+        raise AppError(f"Invalid CSL-JSON file: {exc}") from exc
+
+    if isinstance(data, dict):
+        data = data.get("items", [])
+    if not isinstance(data, list):
+        raise AppError("Invalid CSL-JSON file: expected a list of items")
+
+    entries = []
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        authors = [
+            name
+            for author in item.get("author", [])
+            if (name := _csl_author_name(author))
+        ]
+        date_parts = (item.get("issued") or {}).get("date-parts") or []
+        year = date_parts[0][0] if date_parts and date_parts[0] else None
+        entries.append(
+            {
+                "title": item.get("title") or "Untitled",
+                "authors": authors,
+                "doi": item.get("DOI") or None,
+                "journal": item.get("container-title") or None,
+                "year": _to_year(year),
+                "abstract": item.get("abstract") or None,
                 "citation_count": None,
             }
         )
